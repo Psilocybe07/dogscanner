@@ -120,14 +120,14 @@
       position: absolute;
       top: 52px;
       left: 12px;
-      background: rgba(23, 26, 33, 0.9);
+      background: rgba(23, 26, 33, 0.92);
       border: 1px solid var(--border);
       color: #93c5fd;
       padding: 6px 10px;
       border-radius: 6px;
       font-size: 12px;
       z-index: 5;
-      max-width: 420px;
+      max-width: 460px;
     }
 
     #statusBanner.error {
@@ -344,7 +344,7 @@
   <header>
     <div class="brand">
       <span>Low-Poly Dog Visual-Hull Studio</span>
-      <span class="brand-badge">6-Stage Silhouette Carve</span>
+      <span class="brand-badge">AI Cut-Out + Visual Hull</span>
     </div>
     <div class="header-actions">
       <button id="btnSampleBreed" type="button">Switch Sample Dog</button>
@@ -375,7 +375,7 @@
     <aside class="sidebar">
       <div class="step-card">
         <div class="step-header">
-          <div class="step-title"><span class="step-num">1–2</span> Cut-Out &amp; Camera Ring</div>
+          <div class="step-title"><span class="step-num">1–2</span> AI Cut-Out &amp; Camera Ring</div>
           <span class="step-meta" id="selectedCamLabel">Cam #1</span>
         </div>
 
@@ -392,10 +392,10 @@
 
         <div class="control-row">
           <div class="control-label">
-            <span>Cut-Out BG Threshold</span>
-            <span id="valBgThresh">36</span>
+            <span>Mask Confidence / Threshold</span>
+            <span id="valBgThresh">50%</span>
           </div>
-          <input type="range" id="sliderBgThresh" min="10" max="110" value="36" />
+          <input type="range" id="sliderBgThresh" min="10" max="95" value="50" />
         </div>
 
         <div class="toggle-row">
@@ -491,13 +491,23 @@
       const { OBJExporter } = await import("https://esm.sh/three@0.169.0/examples/jsm/exporters/OBJExporter.js");
       const { STLExporter } = await import("https://esm.sh/three@0.169.0/examples/jsm/exporters/STLExporter.js");
 
+      // Lazy-loaded in-browser neural background removal (@imgly/background-removal)
+      let bgRemovalFn = null;
+      async function getAiBackgroundRemover() {
+        if (bgRemovalFn) return bgRemovalFn;
+        setStatus("Downloading AI background removal model (~40MB, cached after first run)...");
+        const mod = await import("https://esm.sh/@imgly/background-removal@1.5.5");
+        bgRemovalFn = mod.removeBackground || mod.default;
+        return bgRemovalFn;
+      }
+
       // =====================================================================
       // State
       // =====================================================================
       const state = {
         photos: [],
         selectedPhotoIdx: 0,
-        bgThreshold: 36,
+        maskThreshold: 50,
         thicknessPct: 85,
         gridRes: 32,
         targetTris: 1500,
@@ -551,7 +561,7 @@
       resizeViewport();
 
       // =====================================================================
-      // Pure 2D-Projected Sample Dog Photo Generator (Zero extra WebGL contexts)
+      // Built-in Sample Dataset (with pre-computed alpha prob map)
       // =====================================================================
       function generateSampleDogPhotos(variant = 0) {
         const numPhotos = 12;
@@ -563,27 +573,18 @@
         const coatDark = isTall ? "#3b332b" : "#7c3712";
         const coatChest = "#f3eadf";
 
-        // 3D ellipsoids representing dog anatomy so every 2D projection is exact
         const parts = [
-          // Torso
           { pos: [0, isTall ? 0.52 : 0.42, 0], rad: [0.36, isTall ? 0.21 : 0.23, isTall ? 0.21 : 0.23], col: coatMain },
-          // Chest
           { pos: [0.27, isTall ? 0.54 : 0.44, 0], rad: [0.19, 0.2, 0.19], col: coatChest },
-          // Neck
           { pos: [0.34, isTall ? 0.72 : 0.6, 0], rad: [0.14, 0.17, 0.14], col: coatMain },
-          // Head
           { pos: [0.43, isTall ? 0.86 : 0.73, 0], rad: [0.16, 0.14, 0.14], col: coatMain },
-          // Snout
           { pos: [0.58, isTall ? 0.82 : 0.69, 0], rad: [0.12, 0.07, 0.075], col: coatDark },
-          // Ears
           { pos: [0.40, isTall ? 1.02 : 0.87, 0.08], rad: [0.05, 0.11, 0.04], col: coatDark },
           { pos: [0.40, isTall ? 1.02 : 0.87, -0.08], rad: [0.05, 0.11, 0.04], col: coatDark },
-          // 4 Legs
           { pos: [0.23, isTall ? 0.22 : 0.17, 0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
           { pos: [0.23, isTall ? 0.22 : 0.17, -0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
           { pos: [-0.25, isTall ? 0.22 : 0.17, 0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
           { pos: [-0.25, isTall ? 0.22 : 0.17, -0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
-          // Tail
           { pos: [-0.43, isTall ? 0.65 : 0.55, 0], rad: [0.13, 0.05, 0.05], col: coatDark }
         ];
 
@@ -606,22 +607,16 @@
           srcCanvas.height = size;
           const ctx = srcCanvas.getContext("2d");
 
-          // Studio backdrop
           ctx.fillStyle = "#182232";
           ctx.fillRect(0, 0, size, size);
 
-          // Project parts back-to-front
           const projected = parts.map((part) => {
-            pt.set(
-              part.pos[0] + (moved ? 0.36 : 0),
-              part.pos[1],
-              part.pos[2] + (moved ? -0.25 : 0)
-            );
+            pt.set(part.pos[0] + (moved ? 0.36 : 0), part.pos[1], part.pos[2] + (moved ? -0.25 : 0));
             const dist = pt.distanceTo(cam.position);
             pt.project(cam);
             const sx = (pt.x * 0.5 + 0.5) * size;
             const sy = (-pt.y * 0.5 + 0.5) * size;
-            const scale = (size / (2 * dist * Math.tan((20 * Math.PI) / 180)));
+            const scale = size / (2 * dist * Math.tan((20 * Math.PI) / 180));
             const rx = Math.max(2, (Math.abs(Math.sin(angle)) * part.rad[0] + Math.abs(Math.cos(angle)) * part.rad[2]) * scale);
             const ry = Math.max(2, part.rad[1] * scale);
             return { sx, sy, rx, ry, dist, col: part.col };
@@ -634,6 +629,14 @@
             ctx.fill();
           }
 
+          // Compute alpha probability map (0..255)
+          const imgData = ctx.getImageData(0, 0, size, size).data;
+          const alphaProb = new Uint8Array(size * size);
+          for (let px = 0; px < size * size; px++) {
+            const dist = Math.hypot(imgData[px * 4] - 24, imgData[px * 4 + 1] - 34, imgData[px * 4 + 2] - 50);
+            alphaProb[px] = Math.min(255, Math.round(dist * 2.5));
+          }
+
           photos.push({
             id: i + 1,
             name: `dog_${String(i + 1).padStart(2, "0")}.jpg`,
@@ -644,42 +647,34 @@
             dropReason: moved ? "Dog moved" : "",
             manualEnabled: !moved,
             srcCanvas,
+            alphaProb,
             width: size,
             height: size,
             maskData: null,
             erodedMask: null,
-            colorData: null
+            colorData: imgData
           });
         }
         return photos;
       }
 
       // =====================================================================
-      // Step 1: Silhouette Extraction + Cleanup
+      // Step 1: Threshold AI Alpha Map + Keep Main Dog Component + Fill Holes
       // =====================================================================
       function extractAndTidySilhouettes() {
-        const thresh = state.bgThreshold;
+        const cutoff = Math.round((state.maskThreshold / 100) * 255);
         const inset = state.colorInset;
 
         for (const p of state.photos) {
           const w = p.width;
           const h = p.height;
-          const data = p.srcCanvas.getContext("2d").getImageData(0, 0, w, h).data;
-          p.colorData = data;
-
-          const corners = [0, (w - 1) * 4, (h - 1) * w * 4, (h * w - 1) * 4];
-          let bgR = 0, bgG = 0, bgB = 0;
-          for (const idx of corners) {
-            bgR += data[idx];
-            bgG += data[idx + 1];
-            bgB += data[idx + 2];
+          if (!p.colorData) {
+            p.colorData = p.srcCanvas.getContext("2d").getImageData(0, 0, w, h).data;
           }
-          bgR /= 4; bgG /= 4; bgB /= 4;
 
           const raw = new Uint8Array(w * h);
           for (let i = 0; i < w * h; i++) {
-            const dist = Math.hypot(data[i * 4] - bgR, data[i * 4 + 1] - bgG, data[i * 4 + 2] - bgB);
-            raw[i] = dist > thresh ? 1 : 0;
+            raw[i] = p.alphaProb[i] >= cutoff ? 1 : 0;
           }
 
           // Keep largest connected component
@@ -709,7 +704,7 @@
           const clean = new Uint8Array(w * h);
           for (const idx of bestComp) clean[idx] = 1;
 
-          // Fill interior holes
+          // Fill interior holes via border flood-fill
           const outside = new Uint8Array(w * h);
           let head = 0, tail = 0;
           for (let x = 0; x < w; x++) {
@@ -1007,7 +1002,7 @@
 
         document.getElementById("statTris").textContent = allTris.length.toLocaleString();
         document.getElementById("statVoxels").textContent = `${N}³`;
-        setStatus(`Ready — Drag to orbit, scroll to zoom, or upload photos.`);
+        setStatus("Ready — Drag to orbit, scroll to zoom, or upload dog photos.");
       }
 
       // =====================================================================
@@ -1078,7 +1073,7 @@
       }
 
       // =====================================================================
-      // Wire All UI Event Listeners First
+      // Real AI Background Removal on Uploaded Photos
       // =====================================================================
       document.getElementById("btnUpload").addEventListener("click", () => {
         document.getElementById("fileInput").click();
@@ -1087,21 +1082,69 @@
       document.getElementById("fileInput").addEventListener("change", async (e) => {
         const files = Array.from(e.target.files || []);
         if (!files.length) return;
-        setStatus(`Processing ${files.length} uploaded photo(s)...`);
 
+        let removeBg = null;
+        try {
+          removeBg = await getAiBackgroundRemover();
+        } catch (err) {
+          setStatus(`AI model unavailable (${err.message}), using fallback contrast cut-out.`, true);
+        }
+
+        const size = 128;
         const loaded = [];
+
         for (let i = 0; i < files.length; i++) {
-          const url = URL.createObjectURL(files[i]);
-          const img = await new Promise((res) => {
-            const image = new Image();
-            image.onload = () => res(image);
-            image.src = url;
+          setStatus(`AI removing background: photo ${i + 1} of ${files.length}...`);
+
+          // Draw original resized photo
+          const origUrl = URL.createObjectURL(files[i]);
+          const origImg = await new Promise((res) => {
+            const im = new Image();
+            im.onload = () => res(im);
+            im.src = origUrl;
           });
-          const size = 96;
-          const c = document.createElement("canvas");
-          c.width = size; c.height = size;
-          c.getContext("2d").drawImage(img, 0, 0, size, size);
-          URL.revokeObjectURL(url);
+          const srcCanvas = document.createElement("canvas");
+          srcCanvas.width = size; srcCanvas.height = size;
+          srcCanvas.getContext("2d").drawImage(origImg, 0, 0, size, size);
+          URL.revokeObjectURL(origUrl);
+
+          const alphaProb = new Uint8Array(size * size);
+
+          if (removeBg) {
+            try {
+              const cutoutBlob = await removeBg(files[i]);
+              const cutUrl = URL.createObjectURL(cutoutBlob);
+              const cutImg = await new Promise((res) => {
+                const im = new Image();
+                im.onload = () => res(im);
+                im.src = cutUrl;
+              });
+              const cutCanvas = document.createElement("canvas");
+              cutCanvas.width = size; cutCanvas.height = size;
+              const cctx = cutCanvas.getContext("2d");
+              cctx.drawImage(cutImg, 0, 0, size, size);
+              URL.revokeObjectURL(cutUrl);
+
+              const cutData = cctx.getImageData(0, 0, size, size).data;
+              for (let px = 0; px < size * size; px++) {
+                alphaProb[px] = cutData[px * 4 + 3]; // Alpha channel from neural cutout
+              }
+            } catch (err) {
+              console.warn("AI cutout failed for frame, falling back:", err);
+            }
+          }
+
+          // Fallback if AI failed or returned blank
+          let nonZero = 0;
+          for (let px = 0; px < alphaProb.length; px++) if (alphaProb[px] > 20) nonZero++;
+          if (nonZero < 20) {
+            const d = srcCanvas.getContext("2d").getImageData(0, 0, size, size).data;
+            const bgR = d[0], bgG = d[1], bgB = d[2];
+            for (let px = 0; px < size * size; px++) {
+              const dist = Math.hypot(d[px * 4] - bgR, d[px * 4 + 1] - bgG, d[px * 4 + 2] - bgB);
+              alphaProb[px] = Math.min(255, Math.round(dist * 2.2));
+            }
+          }
 
           loaded.push({
             id: i + 1,
@@ -1112,7 +1155,8 @@
             dropped: false,
             dropReason: "",
             manualEnabled: true,
-            srcCanvas: c,
+            srcCanvas,
+            alphaProb,
             width: size,
             height: size,
             maskData: null,
@@ -1120,6 +1164,7 @@
             colorData: null
           });
         }
+
         state.photos = loaded;
         state.selectedPhotoIdx = 0;
         rebuildAll();
@@ -1133,8 +1178,8 @@
       });
 
       document.getElementById("sliderBgThresh").addEventListener("input", (e) => {
-        state.bgThreshold = Number(e.target.value);
-        document.getElementById("valBgThresh").textContent = state.bgThreshold;
+        state.maskThreshold = Number(e.target.value);
+        document.getElementById("valBgThresh").textContent = `${state.maskThreshold}%`;
         rebuildAll();
       });
 
