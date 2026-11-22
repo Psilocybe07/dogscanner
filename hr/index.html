@@ -3,281 +3,557 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Portable HR Toolkit (Zero-Download)</title>
+  <title>Portable HR Workspace</title>
   <style>
     :root {
-      --bg: #f1f5f9;
-      --card: #ffffff;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-alt: #f1f5f9;
       --text: #0f172a;
-      --muted: #64748b;
-      --primary: #2563eb;
-      --primary-hover: #1d4ed8;
+      --text-muted: #475569;
+      --primary: #1d4ed8;
+      --primary-hover: #1e40af;
+      --primary-soft: #eff6ff;
       --border: #cbd5e1;
-      --tab-active: #eff6ff;
+      --success-bg: #dcfce7;
+      --success-text: #166534;
+      --danger-bg: #fee2e2;
+      --danger-text: #991b1b;
+      --radius: 8px;
     }
+
     * { box-sizing: border-box; }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: var(--bg);
       color: var(--text);
       margin: 0;
-      padding: 1.5rem;
+      padding: 0;
       line-height: 1.5;
     }
-    .container { max-width: 1050px; margin: 0 auto; }
-    header {
+
+    /* Top Header Bar */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0.85rem 1.5rem;
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.25rem;
       gap: 1rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
     }
-    h1 { margin: 0; font-size: 1.4rem; }
-    .tabs {
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 700;
+    }
+
+    .status-pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .container {
+      max-width: 1140px;
+      margin: 1.5rem auto;
+      padding: 0 1.5rem;
+    }
+
+    /* Navigation Tabs */
+    .nav-tabs {
       display: flex;
       flex-wrap: wrap;
-      gap: 0.4rem;
+      gap: 0.5rem;
       margin-bottom: 1.25rem;
-      border-bottom: 2px solid var(--border);
-      padding-bottom: 0.5rem;
     }
+
     .tab-btn {
-      background: transparent;
-      color: var(--muted);
-      border: 1px solid transparent;
-      padding: 0.5rem 1rem;
-      border-radius: 6px;
+      background: var(--surface);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 0.6rem 1.1rem;
+      border-radius: var(--radius);
       font-weight: 600;
+      font-size: 0.9rem;
       cursor: pointer;
+      transition: all 0.15s ease;
     }
-    .tab-btn.active {
-      background: var(--tab-active);
+
+    .tab-btn:hover {
+      border-color: var(--primary);
       color: var(--primary);
-      border-color: #bfdbfe;
     }
+
+    .tab-btn.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
-    .grid-2 {
+
+    /* Layout Grid */
+    .split-grid {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 1fr 1.15fr;
       gap: 1.25rem;
+      align-items: start;
     }
-    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+    @media (max-width: 860px) {
+      .split-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Cards & Typography */
     .card {
-      background: var(--card);
+      background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--radius);
       padding: 1.25rem;
-      margin-bottom: 1.25rem;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
     }
-    .card h2 {
-      margin: 0 0 0.85rem 0;
-      font-size: 1.05rem;
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 0.45rem;
+      padding-bottom: 0.6rem;
+      margin-bottom: 1rem;
     }
-    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
-    input, select, textarea {
+
+    .card-header h2 {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .helper-text {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-top: -0.5rem;
+      margin-bottom: 0.85rem;
+      display: block;
+    }
+
+    label {
+      display: block;
+      font-size: 0.84rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      color: var(--text);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    input[type="date"],
+    select,
+    textarea {
       width: 100%;
-      padding: 0.55rem;
+      padding: 0.55rem 0.7rem;
       border: 1px solid var(--border);
       border-radius: 6px;
       font-family: inherit;
       font-size: 0.9rem;
-      margin-bottom: 0.85rem;
+      color: var(--text);
+      background: #ffffff;
+      margin-bottom: 0.9rem;
+      transition: border-color 0.15s;
     }
-    button.action {
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);
+    }
+
+    textarea.draft-area {
+      background: #fcfcfd;
+      line-height: 1.6;
+      min-height: 330px;
+      resize: vertical;
+    }
+
+    /* Buttons */
+    button.btn-primary {
       background: var(--primary);
-      color: #fff;
+      color: #ffffff;
       border: none;
       padding: 0.55rem 1.1rem;
       border-radius: 6px;
       font-weight: 600;
+      font-size: 0.88rem;
       cursor: pointer;
     }
-    button.action:hover { background: var(--primary-hover); }
-    button.secondary {
-      background: #e2e8f0;
-      color: #1e293b;
-      border: none;
-      padding: 0.55rem 1rem;
+
+    button.btn-primary:hover { background: var(--primary-hover); }
+
+    button.btn-secondary {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 0.5rem 0.9rem;
       border-radius: 6px;
+      font-weight: 600;
+      font-size: 0.84rem;
+      cursor: pointer;
+    }
+
+    button.btn-secondary:hover { background: #e2e8f0; }
+
+    button.btn-ghost {
+      background: transparent;
+      color: var(--text-muted);
+      border: none;
+      padding: 0.35rem 0.6rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+
+    button.btn-ghost:hover {
+      background: var(--surface-alt);
+      color: var(--text);
+    }
+
+    .btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: center;
+    }
+
+    /* Chips & Badges */
+    .chip-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 0.9rem;
+    }
+
+    .chip {
+      background: var(--primary-soft);
+      color: var(--primary);
+      border: 1px solid #bfdbfe;
+      padding: 0.25rem 0.65rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
       font-weight: 600;
       cursor: pointer;
     }
-    button.secondary:hover { background: #cbd5e1; }
-    .output-box {
-      background: #f8fafc;
-      border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 1rem;
-      white-space: pre-wrap;
-      min-height: 220px;
-      font-size: 0.92rem;
-    }
+
+    .chip:hover { background: #dbeafe; }
+
     .pill {
       display: inline-block;
-      padding: 0.2rem 0.55rem;
+      padding: 0.2rem 0.6rem;
       border-radius: 4px;
       font-size: 0.8rem;
       font-weight: 600;
-      margin: 0.2rem;
+      margin: 0.2rem 0.25rem 0.2rem 0;
     }
-    .pill-match { background: #dcfce7; color: #166534; }
-    .pill-miss { background: #fee2e2; color: #991b1b; }
-    .policy-hit {
-      background: #fff;
+
+    .pill-match { background: var(--success-bg); color: var(--success-text); }
+    .pill-miss { background: var(--danger-bg); color: var(--danger-text); }
+
+    /* Policy Results */
+    .policy-card {
+      background: var(--surface-alt);
       border-left: 4px solid var(--primary);
-      padding: 0.75rem;
+      padding: 0.85rem 1rem;
+      border-radius: 6px;
       margin-bottom: 0.75rem;
-      border-radius: 4px;
-      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+      font-size: 0.9rem;
     }
-    mark { background: #fef08a; padding: 0 2px; border-radius: 2px; }
+
+    mark {
+      background: #fef08a;
+      color: #0f172a;
+      padding: 0 2px;
+      border-radius: 2px;
+      font-weight: 600;
+    }
+
+    /* Result Callouts */
+    .result-callout {
+      background: var(--primary-soft);
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      padding: 0.9rem 1rem;
+      margin-top: 1rem;
+      font-size: 0.92rem;
+      display: none;
+    }
+
+    .report-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      min-height: 260px;
+      font-size: 0.9rem;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 0.9rem;
+      cursor: pointer;
+    }
+
+    .checkbox-label input {
+      width: auto;
+      margin: 0;
+    }
+
+    /* Non-blocking Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 1.5rem;
+      right: 1.5rem;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 0.7rem 1.1rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(8px);
+      transition: all 0.2s ease;
+      z-index: 100;
+    }
+
+    #toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <div>
-        <h1>Portable HR Assistant</h1>
-        <small style="color: var(--muted);">Instant Local Engine — Zero Downloads, Zero Internet Required</small>
-      </div>
-      <div>
-        <button class="secondary" onclick="exportBackup()">Export Backup (.json)</button>
-        <button class="secondary" onclick="document.getElementById('importFile').click()">Import Backup</button>
-        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)" />
-      </div>
-    </header>
 
-    <!-- NAVIGATION TABS -->
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('tab-docs', this)">1. Document & Email Builder</button>
-      <button class="tab-btn" onclick="switchTab('tab-policy', this)">2. Policy & Handbook Search</button>
-      <button class="tab-btn" onclick="switchTab('tab-resume', this)">3. Resume Keyword Screener</button>
-      <button class="tab-btn" onclick="switchTab('tab-calc', this)">4. HR Calculators</button>
+  <!-- TOP UTILITY HEADER -->
+  <header class="topbar">
+    <div class="brand">
+      <h1>Portable HR Workspace</h1>
+      <span class="status-pill" id="saveIndicator">Offline Ready • Auto-Saved</span>
     </div>
+    <div class="topbar-actions">
+      <button class="btn-secondary" onclick="exportBackup()">Export Data (.json)</button>
+      <button class="btn-secondary" onclick="document.getElementById('importFile').click()">Import Data</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)" />
+    </div>
+  </header>
+
+  <main class="container">
+    <!-- MAIN NAVIGATION -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" onclick="switchTab('tab-docs', this)">Document & Email Builder</button>
+      <button class="tab-btn" onclick="switchTab('tab-policy', this)">Handbook & Policy Lookup</button>
+      <button class="tab-btn" onclick="switchTab('tab-resume', this)">Resume Screener</button>
+      <button class="tab-btn" onclick="switchTab('tab-calc', this)">PTO & Tenure Calculators</button>
+    </nav>
 
     <!-- TAB 1: DOCUMENT & EMAIL BUILDER -->
-    <div id="tab-docs" class="tab-panel active">
-      <div class="grid-2">
+    <section id="tab-docs" class="tab-panel active">
+      <div class="split-grid">
         <div class="card">
-          <h2>Template & Details</h2>
-          <label for="docTemplate">Select HR Document / Email:</label>
-          <select id="docTemplate" onchange="renderDocument()">
+          <div class="card-header">
+            <h2>1. Choose Template & Fill Details</h2>
+            <button class="btn-ghost" onclick="clearDocFields()">Reset Fields</button>
+          </div>
+
+          <label for="docTemplate">Document Type</label>
+          <select id="docTemplate" onchange="handleTemplateChange()">
             <option value="offer">Formal Job Offer Summary</option>
             <option value="interview_invite">Interview Invitation Email</option>
             <option value="rejection_post">Post-Interview Rejection Email</option>
-            <option value="onboarding">New Hire Welcome & Day 1 Info</option>
+            <option value="onboarding">New Hire Welcome & Day 1 Logistics</option>
             <option value="pip">Performance Improvement Plan (PIP) Notice</option>
             <option value="verification">Employment Verification Letter</option>
           </select>
 
-          <label for="candName">Employee / Candidate Name:</label>
-          <input type="text" id="candName" placeholder="e.g., Alex Morgan" oninput="renderDocument()" />
+          <label for="candName" id="lblName">Candidate Full Name</label>
+          <input type="text" id="candName" placeholder="e.g., Jordan Taylor" oninput="renderDocument()" />
 
-          <label for="roleTitle">Job Title / Department:</label>
-          <input type="text" id="roleTitle" placeholder="e.g., Senior Operations Coordinator" oninput="renderDocument()" />
+          <label for="roleTitle" id="lblRole">Position / Job Title</label>
+          <input type="text" id="roleTitle" placeholder="e.g., Operations Coordinator" oninput="renderDocument()" />
 
-          <label for="keyDate">Start Date / Interview Date / Deadline:</label>
+          <label for="keyDate" id="lblDate">Proposed Start Date</label>
           <input type="text" id="keyDate" placeholder="e.g., Monday, December 7, 2026" oninput="renderDocument()" />
 
-          <label for="compOrNotes">Compensation / Specific Details / Notes:</label>
-          <textarea id="compOrNotes" rows="3" placeholder="e.g., $72,000/year, 15 days PTO, reporting to Sarah Jenkins" oninput="renderDocument()"></textarea>
+          <label for="compOrNotes" id="lblNotes">Compensation & Offer Terms</label>
+          <textarea id="compOrNotes" rows="3" placeholder="e.g., $72,000/year salary, 15 days PTO, full health benefits after 90 days" oninput="renderDocument()"></textarea>
 
-          <label for="hrSender">Your Name & HR Title:</label>
-          <input type="text" id="hrSender" placeholder="e.g., Jordan Lee, HR Manager" oninput="renderDocument()" />
+          <label for="hrSender">Your Signature (Saved Automatically)</label>
+          <input type="text" id="hrSender" placeholder="e.g., Samira Patel, Human Resources Manager" oninput="saveSignature(); renderDocument()" />
         </div>
 
         <div class="card">
-          <h2>Generated Draft (Editable)</h2>
-          <textarea id="docOutput" rows="16" style="font-family: inherit;"></textarea>
-          <button class="action" onclick="copyText('docOutput')">Copy to Clipboard</button>
+          <div class="card-header">
+            <h2>2. Live Draft (Click Inside to Edit)</h2>
+            <button class="btn-primary" onclick="copyText('docOutput')">Copy Draft</button>
+          </div>
+          <span class="helper-text">Updates automatically as you type. Edit any phrasing directly before copying.</span>
+          <textarea id="docOutput" class="draft-area"></textarea>
         </div>
       </div>
-    </div>
+    </section>
 
-    <!-- TAB 2: POLICY & HANDBOOK SEARCH -->
-    <div id="tab-policy" class="tab-panel">
-      <div class="grid-2">
+    <!-- TAB 2: HANDBOOK & POLICY LOOKUP -->
+    <section id="tab-policy" class="tab-panel">
+      <div class="split-grid">
         <div class="card">
-          <h2>Saved Company Handbook / Policies</h2>
-          <label for="handbookText">Paste Handbook Sections (Separate sections with a blank line):</label>
-          <textarea id="handbookText" rows="12" placeholder="Paste your company policies here. Separate each section with an empty line so the search engine can rank and highlight matching paragraphs."></textarea>
-          <button class="action" onclick="saveHandbook()">Save Handbook Locally</button>
+          <div class="card-header">
+            <h2>Company Handbook Source</h2>
+            <div>
+              <button class="btn-secondary" onclick="document.getElementById('handbookFile').click()">Load .txt / .md</button>
+              <input type="file" id="handbookFile" accept=".txt,.md" style="display:none" onchange="loadHandbookFile(event)" />
+            </div>
+          </div>
+          <span class="helper-text">Separate policy sections with a blank line. Changes save automatically to this browser.</span>
+          <textarea id="handbookText" rows="14" oninput="autoSaveHandbook()"></textarea>
         </div>
 
         <div class="card">
-          <h2>Instant Policy Search</h2>
-          <label for="policyQuery">Ask a Question or Enter Keywords:</label>
-          <input type="text" id="policyQuery" placeholder="e.g., parental leave notice, sick days, remote work" oninput="searchPolicy()" />
-          <div id="policyResults" style="max-height: 360px; overflow-y: auto;">
-            <small style="color: var(--muted);">Type keywords above to search your saved handbook sections.</small>
+          <div class="card-header">
+            <h2>Instant Policy Search</h2>
+            <button class="btn-ghost" onclick="clearSearch()">Clear</button>
+          </div>
+
+          <label for="policyQuery">Search Keywords or Employee Question</label>
+          <input type="text" id="policyQuery" placeholder="Type keywords (e.g., parental leave, sick days, remote)..." oninput="searchPolicy()" />
+
+          <div class="chip-group" id="quickChips"></div>
+
+          <div id="policyResults" style="max-height: 360px; overflow-y: auto;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: RESUME SCREENER -->
+    <section id="tab-resume" class="tab-panel">
+      <div class="split-grid">
+        <div class="card">
+          <div class="card-header">
+            <h2>Job Criteria & Resume Text</h2>
+            <button class="btn-ghost" onclick="clearResume()">Clear</button>
+          </div>
+
+          <label for="reqKeywords">Required Skills / Keywords (Comma-Separated)</label>
+          <input type="text" id="reqKeywords" placeholder="e.g., Excel, Payroll, HRIS, Onboarding, Compliance" oninput="saveKeywords()" />
+
+          <label class="checkbox-label">
+            <input type="checkbox" id="blindMode" checked />
+            Blind Review Mode (Redact candidate email & phone from report)
+          </label>
+
+          <label for="resumeText">Paste Candidate Resume</label>
+          <textarea id="resumeText" rows="10" placeholder="Paste plain text from the resume here..."></textarea>
+
+          <button class="btn-primary" onclick="screenResume()">Run Keyword Match</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2>Screening Summary</h2>
+            <button class="btn-secondary" onclick="copyReport()">Copy Summary</button>
+          </div>
+          <div id="resumeReport" class="report-box">
+            <span style="color: var(--text-muted);">Enter required skills and paste a resume on the left, then click <strong>Run Keyword Match</strong>.</span>
           </div>
         </div>
       </div>
-    </div>
-
-    <!-- TAB 3: RESUME KEYWORD SCREENER -->
-    <div id="tab-resume" class="tab-panel">
-      <div class="grid-2">
-        <div class="card">
-          <h2>Inputs</h2>
-          <label for="reqKeywords">Required Skills / Keywords (comma-separated):</label>
-          <input type="text" id="reqKeywords" placeholder="e.g., Excel, Payroll, Onboarding, HRIS, Conflict Resolution, Compliance" />
-
-          <label for="resumeText">Paste Candidate Resume Text:</label>
-          <textarea id="resumeText" rows="11" placeholder="Paste plain text from the candidate's resume here..."></textarea>
-
-          <button class="action" onclick="screenResume()">Analyze Match & Redact PII</button>
-        </div>
-
-        <div class="card">
-          <h2>Screening Report</h2>
-          <div id="resumeReport" class="output-box">Enter required keywords and paste a resume to see a breakdown.</div>
-        </div>
-      </div>
-    </div>
+    </section>
 
     <!-- TAB 4: HR CALCULATORS -->
-    <div id="tab-calc" class="tab-panel">
-      <div class="grid-2">
+    <section id="tab-calc" class="tab-panel">
+      <div class="split-grid">
         <div class="card">
-          <h2>Prorated PTO / Vacation Calculator</h2>
-          <label for="annualPto">Annual PTO Allowance (Days or Hours):</label>
-          <input type="number" id="annualPto" value="15" />
+          <div class="card-header">
+            <h2>Prorated PTO Calculator</h2>
+          </div>
+          <label for="annualPto">Annual PTO Allowance (Days or Hours)</label>
+          <input type="number" id="annualPto" value="15" min="0" step="0.5" oninput="calcPto()" />
 
-          <label for="hireDate">Employee Start Date:</label>
-          <input type="date" id="hireDate" />
+          <label for="hireDate">Employee Start Date</label>
+          <input type="date" id="hireDate" oninput="calcPto()" />
 
-          <label for="yearEnd">Benefit Year End Date:</label>
-          <input type="date" id="yearEnd" />
+          <label for="yearEnd">Benefit Year End Date</label>
+          <input type="date" id="yearEnd" oninput="calcPto()" />
 
-          <button class="action" onclick="calcPto()">Calculate Prorated PTO</button>
-          <div id="ptoResult" style="margin-top: 1rem; font-weight: 600;"></div>
+          <div id="ptoResult" class="result-callout"></div>
         </div>
 
         <div class="card">
-          <h2>Tenure & Notice / Severance Estimator</h2>
-          <label for="tenureStart">Hire Date:</label>
-          <input type="date" id="tenureStart" />
+          <div class="card-header">
+            <h2>Tenure & Severance / Notice Estimator</h2>
+          </div>
+          <label for="tenureStart">Original Hire Date</label>
+          <input type="date" id="tenureStart" oninput="calcTenure()" />
 
-          <label for="tenureEnd">Termination / Reference Date:</label>
-          <input type="date" id="tenureEnd" />
+          <label for="tenureEnd">Reference / Separation Date</label>
+          <input type="date" id="tenureEnd" oninput="calcTenure()" />
 
-          <label for="weeksPerYear">Company Policy Multiplier (Weeks per Year of Service):</label>
-          <input type="number" id="weeksPerYear" value="2" step="0.5" />
+          <label for="weeksPerYear">Policy Multiplier (Weeks per Year of Service)</label>
+          <input type="number" id="weeksPerYear" value="2" min="0" step="0.5" oninput="calcTenure()" />
 
-          <button class="action" onclick="calcTenure()">Calculate Tenure & Weeks</button>
-          <div id="tenureResult" style="margin-top: 1rem; font-weight: 600;"></div>
+          <div id="tenureResult" class="result-callout"></div>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
+  </main>
+
+  <div id="toast"></div>
 
   <script>
-    // --- TAB SWITCHING ---
+    // --- TOAST & STATUS FEEDBACK ---
+    let toastTimer;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.remove('show'), 2600);
+    }
+
+    function flashSaved() {
+      const badge = document.getElementById('saveIndicator');
+      badge.textContent = 'Saving...';
+      setTimeout(() => {
+        badge.textContent = 'Offline Ready • Auto-Saved';
+      }, 600);
+    }
+
+    // --- NAVIGATION ---
     function switchTab(tabId, btn) {
       document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -285,105 +561,223 @@
       btn.classList.add('active');
     }
 
-    // --- 1. DOCUMENT & EMAIL TEMPLATES ---
-    const TEMPLATES = {
-      offer: (d) => `Subject: Formal Offer of Employment — ${d.role}\n\nDear ${d.name},\n\nWe are pleased to offer you the position of ${d.role}. Your anticipated start date is ${d.date}.\n\nKey Offer Terms:\n- Position: ${d.role}\n- Start Date: ${d.date}\n- Compensation & Details: ${d.notes}\n\nPlease review the attached formal agreement and let us know if you have any questions. We are excited about the prospect of you joining our team.\n\nWarm regards,\n${d.sender}`,
-      interview_invite: (d) => `Subject: Interview Invitation — ${d.role}\n\nHi ${d.name},\n\nThank you for applying for the ${d.role} position. We were impressed with your background and would love to invite you for an interview.\n\nProposed Time: ${d.date}\nAdditional Details: ${d.notes}\n\nPlease reply to confirm if this time works for you or share your availability.\n\nBest regards,\n${d.sender}`,
-      rejection_post: (d) => `Subject: Update on your application for ${d.role}\n\nDear ${d.name},\n\nThank you for taking the time to speak with our team regarding the ${d.role} position. We truly appreciate the effort you put into the interview process.\n\nAfter careful consideration, we have decided to move forward with another candidate whose background more closely aligns with our current needs. ${d.notes ? d.notes + '\n\n' : ''}We will keep your resume on file for future openings and wish you every success in your job search.\n\nSincerely,\n${d.sender}`,
-      onboarding: (d) => `Subject: Welcome to the Team! Your First Day Details (${d.date})\n\nHi ${d.name},\n\nWelcome aboard! We are thrilled to have you join us as our new ${d.role} starting on ${d.date}.\n\nFirst Day Checklist & Info:\n- ${d.notes}\n- Please bring government-issued photo ID and banking details for payroll setup.\n\nReach out anytime before your start date if you have questions.\n\nBest,\n${d.sender}`,
-      pip: (d) => `CONFIDENTIAL — PERFORMANCE IMPROVEMENT PLAN (PIP)\n\nEmployee: ${d.name}\nRole: ${d.role}\nReview / Target Date: ${d.date}\n\n1. Purpose:\nThis document outlines specific performance areas requiring immediate and sustained improvement.\n\n2. Areas for Improvement & Expectations:\n${d.notes}\n\n3. Support & Check-Ins:\nRegular progress check-ins will be held leading up to ${d.date} to review milestones and provide feedback.\n\nIssued by: ${d.sender}`,
-      verification: (d) => `To Whom It May Concern,\n\nThis letter confirms that ${d.name} is employed with our organization in the role of ${d.role}.\n\nEmployment Details:\n- Effective / Hire Date: ${d.date}\n- Additional Confirmed Information: ${d.notes}\n\nIf you require further verification, please contact Human Resources directly.\n\nSincerely,\n${d.sender}`
+    // --- TAB 1: CONTEXT-AWARE DOCUMENT BUILDER ---
+    const FIELD_CONFIG = {
+      offer: {
+        name: ['Candidate Full Name', 'e.g., Jordan Taylor'],
+        role: ['Position / Job Title', 'e.g., Operations Coordinator'],
+        date: ['Proposed Start Date', 'e.g., Monday, December 7, 2026'],
+        notes: ['Compensation & Key Offer Terms', 'e.g., $72,000/year, 15 days PTO, health & dental benefits']
+      },
+      interview_invite: {
+        name: ['Candidate Full Name', 'e.g., Jordan Taylor'],
+        role: ['Position / Job Title', 'e.g., Operations Coordinator'],
+        date: ['Proposed Interview Date & Time', 'e.g., Thursday, Nov 26 at 2:00 PM EST'],
+        notes: ['Interview Format / Link / Panelists', 'e.g., 45-minute video call via Microsoft Teams with Hiring Manager']
+      },
+      rejection_post: {
+        name: ['Candidate Full Name', 'e.g., Jordan Taylor'],
+        role: ['Position Interviewed For', 'e.g., Operations Coordinator'],
+        date: ['Interview Date (Optional)', 'e.g., November 18, 2026'],
+        notes: ['Optional Constructive Note', 'e.g., We were especially impressed with your logistics background.']
+      },
+      onboarding: {
+        name: ['New Hire Name', 'e.g., Jordan Taylor'],
+        role: ['New Role & Department', 'e.g., Operations Coordinator, Supply Chain'],
+        date: ['First Day & Arrival Time', 'e.g., Monday, Dec 7 at 9:00 AM'],
+        notes: ['Location / Manager / First-Day Agenda', 'e.g., Report to Main Lobby; ask for Alex Rivera']
+      },
+      pip: {
+        name: ['Employee Name', 'e.g., Jordan Taylor'],
+        role: ['Current Job Title', 'e.g., Operations Coordinator'],
+        date: ['Review Period End Date', 'e.g., February 22, 2027 (90-Day Review)'],
+        notes: ['Specific Performance Gaps & Measurable Goals', 'e.g., Maintain 98% order accuracy; submit weekly status reports by Friday 3 PM']
+      },
+      verification: {
+        name: ['Employee Full Name', 'e.g., Jordan Taylor'],
+        role: ['Current / Most Recent Title', 'e.g., Operations Coordinator'],
+        date: ['Original Hire Date', 'e.g., March 14, 2023'],
+        notes: ['Employment Status & Additional Confirmed Details', 'e.g., Full-time active employee; current annual base salary $72,000']
+      }
     };
+
+    const TEMPLATES = {
+      offer: (d) => `Subject: Formal Offer of Employment — ${d.role}\n\nDear ${d.name},\n\nWe are pleased to extend an offer of employment for the position of ${d.role}. Your anticipated start date is ${d.date}.\n\nSummary of Offer Terms:\n- Position: ${d.role}\n- Start Date: ${d.date}\n- Compensation & Benefits: ${d.notes}\n\nPlease review the attached formal employment agreement and let us know if you have any questions. We look forward to welcoming you to the team.\n\nWarm regards,\n${d.sender}`,
+      interview_invite: (d) => `Subject: Interview Invitation — ${d.role}\n\nHi ${d.name},\n\nThank you for applying for the ${d.role} role. We enjoyed reviewing your background and would like to invite you to an interview.\n\nWhen: ${d.date}\nDetails: ${d.notes}\n\nPlease reply to confirm if this time works for you or let us know your availability.\n\nBest regards,\n${d.sender}`,
+      rejection_post: (d) => `Subject: Update on your application for ${d.role}\n\nDear ${d.name},\n\nThank you for taking the time to speak with our team regarding the ${d.role} position. We appreciate the time and thought you put into the interview process.\n\nAfter careful consideration, we have decided to move forward with another candidate whose experience more closely aligns with our current requirements. ${d.notes ? d.notes + '\n\n' : ''}We will keep your resume on file for future opportunities and wish you the very best in your career.\n\nSincerely,\n${d.sender}`,
+      onboarding: (d) => `Subject: Welcome to the Team! Your First Day Details (${d.date})\n\nHi ${d.name},\n\nWelcome aboard! We are excited for you to join us as ${d.role} starting ${d.date}.\n\nFirst-Day Details:\n- ${d.notes}\n- Please bring government-issued photo ID and void cheque / direct deposit details for payroll setup.\n\nPlease reach out if you have any questions before your start date.\n\nBest,\n${d.sender}`,
+      pip: (d) => `CONFIDENTIAL — PERFORMANCE IMPROVEMENT PLAN (PIP)\n\nEmployee: ${d.name}\nRole: ${d.role}\nTarget Review Date: ${d.date}\n\n1. Objective:\nThis plan outlines specific performance areas requiring immediate and sustained improvement.\n\n2. Performance Expectations & Action Items:\n${d.notes}\n\n3. Support & Check-In Schedule:\nBi-weekly check-ins will take place leading up to ${d.date} to review progress and provide support.\n\nIssued by: ${d.sender}`,
+      verification: (d) => `To Whom It May Concern,\n\nThis letter confirms that ${d.name} is employed with our organization in the position of ${d.role}.\n\nConfirmed Employment Details:\n- Hire Date: ${d.date}\n- Status & Additional Details: ${d.notes}\n\nIf you require further verification, please contact Human Resources directly.\n\nSincerely,\n${d.sender}`
+    };
+
+    function handleTemplateChange() {
+      const tpl = document.getElementById('docTemplate').value;
+      const cfg = FIELD_CONFIG[tpl];
+      document.getElementById('lblName').textContent = cfg.name[0];
+      document.getElementById('candName').placeholder = cfg.name[1];
+      document.getElementById('lblRole').textContent = cfg.role[0];
+      document.getElementById('roleTitle').placeholder = cfg.role[1];
+      document.getElementById('lblDate').textContent = cfg.date[0];
+      document.getElementById('keyDate').placeholder = cfg.date[1];
+      document.getElementById('lblNotes').textContent = cfg.notes[0];
+      document.getElementById('compOrNotes').placeholder = cfg.notes[1];
+      renderDocument();
+    }
 
     function renderDocument() {
       const tpl = document.getElementById('docTemplate').value;
       const data = {
-        name: document.getElementById('candName').value.trim() || '[Employee/Candidate Name]',
+        name: document.getElementById('candName').value.trim() || '[Name]',
         role: document.getElementById('roleTitle').value.trim() || '[Job Title]',
         date: document.getElementById('keyDate').value.trim() || '[Date]',
-        notes: document.getElementById('compOrNotes').value.trim() || '[Insert specific details here]',
+        notes: document.getElementById('compOrNotes').value.trim() || '[Insert details here]',
         sender: document.getElementById('hrSender').value.trim() || '[Your Name, HR]'
       };
       document.getElementById('docOutput').value = TEMPLATES[tpl](data);
     }
-    renderDocument();
+
+    function clearDocFields() {
+      ['candName', 'roleTitle', 'keyDate', 'compOrNotes'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+      renderDocument();
+      showToast('Form fields cleared.');
+    }
+
+    function saveSignature() {
+      localStorage.setItem('hr_ws_signature', document.getElementById('hrSender').value);
+      flashSaved();
+    }
 
     function copyText(id) {
       const el = document.getElementById(id);
       navigator.clipboard.writeText(el.value || el.textContent);
-      alert('Copied to clipboard.');
+      showToast('Copied to clipboard.');
     }
 
-    // --- 2. POLICY & HANDBOOK SEARCH ---
-    const DEFAULT_HANDBOOK = `PTO & Vacation Policy:\nFull-time employees accrue 15 days of paid time off (PTO) per calendar year, prorated based on hire date. Vacation requests of 3 or more consecutive days require at least 2 weeks advance notice to your manager.\n\nSick & Personal Leave:\nEmployees receive up to 5 paid sick days per year for personal illness or medical appointments. Please notify your supervisor before your scheduled shift start time.\n\nParental Leave:\nEmployees with at least 12 months of continuous service are eligible for company parental leave top-up benefits. Please notify HR at least 4 weeks prior to expected leave start date.\n\nRemote & Hybrid Work:\nEligible roles may work remotely up to 2 days per week with manager approval. Core collaboration hours are 10:00 AM to 3:00 PM local time.`;
+    // --- TAB 2: HANDBOOK SEARCH WITH PREFIX MATCHING & CHIPS ---
+    const DEFAULT_HANDBOOK = `PTO & Vacation Policy:\nFull-time employees accrue 15 days of paid time off (PTO) per calendar year, prorated based on hire date. Vacation requests of 3 or more consecutive days require at least 2 weeks advance notice to your manager.\n\nSick & Personal Leave:\nEmployees receive up to 5 paid sick days per year for personal illness or medical appointments. Please notify your supervisor before your scheduled shift start time.\n\nParental Leave:\nEmployees with at least 12 months of continuous service are eligible for company parental leave top-up benefits. Please notify HR at least 4 weeks prior to expected leave start date.\n\nRemote & Hybrid Work:\nEligible roles may work remotely up to 2 days per week with manager approval. Core collaboration hours are 10:00 AM to 3:00 PM local time.\n\nBereavement Leave:\nEmployees are entitled to up to 3 paid days of bereavement leave in the event of the passing of an immediate family member.`;
 
     const handbookBox = document.getElementById('handbookText');
-    handbookBox.value = localStorage.getItem('hr_lite_handbook') || DEFAULT_HANDBOOK;
+    handbookBox.value = localStorage.getItem('hr_ws_handbook') || DEFAULT_HANDBOOK;
 
-    function saveHandbook() {
-      localStorage.setItem('hr_lite_handbook', handbookBox.value);
+    function autoSaveHandbook() {
+      localStorage.setItem('hr_ws_handbook', handbookBox.value);
+      flashSaved();
+      buildQuickChips();
       searchPolicy();
-      alert('Handbook saved locally in browser storage.');
+    }
+
+    function loadHandbookFile(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        handbookBox.value = ev.target.result;
+        autoSaveHandbook();
+        showToast(`Loaded "${file.name}"`);
+      };
+      reader.readAsText(file);
+    }
+
+    function buildQuickChips() {
+      const sections = handbookBox.value.split(/\n\s*\n/).filter(s => s.trim());
+      const chipsDiv = document.getElementById('quickChips');
+      const titles = sections.slice(0, 6).map(sec => {
+        const firstLine = sec.split('\n')[0].replace(/[:#*-]/g, '').trim();
+        return firstLine.length > 26 ? firstLine.slice(0, 26) + '...' : firstLine;
+      });
+      chipsDiv.innerHTML = titles.map(t =>
+        `<button type="button" class="chip" onclick="applyChip('${t.replace(/'/g, "\\'")}')">${t}</button>`
+      ).join('');
+    }
+
+    function applyChip(term) {
+      const cleanTerm = term.replace('...', '').split('&')[0].trim();
+      document.getElementById('policyQuery').value = cleanTerm;
+      searchPolicy();
+    }
+
+    function clearSearch() {
+      document.getElementById('policyQuery').value = '';
+      searchPolicy();
     }
 
     function searchPolicy() {
       const query = document.getElementById('policyQuery').value.trim().toLowerCase();
       const resultsDiv = document.getElementById('policyResults');
-      const text = handbookBox.value.trim();
+      const sections = handbookBox.value.split(/\n\s*\n/).filter(s => s.trim().length > 0);
 
       if (!query) {
-        resultsDiv.innerHTML = '<small style="color: var(--muted);">Type keywords above to search your saved handbook sections.</small>';
+        resultsDiv.innerHTML = `<span class="helper-text" style="margin-top:0.5rem;">Showing all ${sections.length} policy sections. Type above to filter.</span>` +
+          sections.map(s => `<div class="policy-card">${escapeHtml(s).replace(/\n/g, '<br>')}</div>`).join('');
         return;
       }
 
-      const stopWords = new Set(['the', 'and', 'for', 'are', 'with', 'how', 'what', 'can', 'does', 'is', 'to', 'of', 'in', 'a']);
-      const terms = query.split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w));
-      if (terms.length === 0) return;
+      const stopWords = new Set(['the', 'and', 'for', 'are', 'with', 'how', 'what', 'can', 'does', 'is', 'to', 'of', 'in', 'a', 'my', 'do', 'i']);
+      // Basic stemmer: trims trailing 's' or 'ing' for broader matching
+      const rawTerms = query.split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w));
+      const stems = rawTerms.map(w => w.replace(/(ing|ed|s)$/, ''));
 
-      const sections = text.split(/\n\s*\n/).filter(s => s.trim().length > 0);
+      if (stems.length === 0) return;
+
       const scored = sections.map(sec => {
         const lower = sec.toLowerCase();
         let score = 0;
-        terms.forEach(t => {
-          const matches = lower.split(t).length - 1;
-          score += matches;
+        stems.forEach(stem => {
+          if (stem.length < 3) return;
+          const regex = new RegExp(`\\b${escapeRegex(stem)}[a-z]*`, 'gi');
+          const matches = lower.match(regex);
+          if (matches) score += matches.length;
         });
         return { sec, score };
       }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
 
       if (scored.length === 0) {
-        resultsDiv.innerHTML = '<p style="color:#991b1b; font-size:0.9rem;">No matching policy section found in the loaded handbook.</p>';
+        resultsDiv.innerHTML = `<div class="policy-card" style="border-left-color: var(--danger-text);">No matching sections found for "<strong>${escapeHtml(query)}</strong>". Try a broader keyword.</div>`;
         return;
       }
 
       resultsDiv.innerHTML = scored.map(item => {
-        let highlighted = item.sec.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        terms.forEach(t => {
-          const regex = new RegExp(`(${t})`, 'gi');
-          highlighted = highlighted.replace(regex, '<mark>$1</mark>');
+        let html = escapeHtml(item.sec);
+        stems.forEach(stem => {
+          if (stem.length < 3) return;
+          const regex = new RegExp(`(\\b${escapeRegex(stem)}[a-z]*)`, 'gi');
+          html = html.replace(regex, '<mark>$1</mark>');
         });
-        return `<div class="policy-hit">${highlighted.replace(/\n/g, '<br>')}</div>`;
+        return `<div class="policy-card">${html.replace(/\n/g, '<br>')}</div>`;
       }).join('');
     }
 
-    // --- 3. RESUME KEYWORD SCREENER ---
+    // --- TAB 3: WHOLE-WORD RESUME SCREENER ---
+    function saveKeywords() {
+      localStorage.setItem('hr_ws_keywords', document.getElementById('reqKeywords').value);
+      flashSaved();
+    }
+
+    function clearResume() {
+      document.getElementById('resumeText').value = '';
+      document.getElementById('resumeReport').innerHTML = '<span style="color: var(--text-muted);">Resume cleared. Paste a new resume to analyze.</span>';
+    }
+
     function screenResume() {
       const kwRaw = document.getElementById('reqKeywords').value;
       const resume = document.getElementById('resumeText').value;
+      const blind = document.getElementById('blindMode').checked;
       const reportDiv = document.getElementById('resumeReport');
 
       if (!kwRaw.trim() || !resume.trim()) {
-        reportDiv.textContent = 'Please enter both required keywords and resume text.';
+        showToast('Enter both required skills and resume text.');
         return;
       }
 
       const keywords = kwRaw.split(',').map(k => k.trim()).filter(Boolean);
-      const resumeLower = resume.toLowerCase();
       const matched = [];
       const missing = [];
 
       keywords.forEach(kw => {
-        if (resumeLower.includes(kw.toLowerCase())) {
+        const regex = new RegExp(`\\b${escapeRegex(kw)}\\b`, 'i');
+        if (regex.test(resume)) {
           matched.push(kw);
         } else {
           missing.push(kw);
@@ -391,29 +785,56 @@
       });
 
       const scorePct = Math.round((matched.length / keywords.length) * 100);
-
-      // Extract & mask sensitive PII for blind review
       const emails = resume.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g) || [];
       const phones = resume.match(/(\+?\d{1,2}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g) || [];
 
-      reportDiv.innerHTML = `<strong>Match Score: ${scorePct}% (${matched.length} of ${keywords.length} keywords)</strong>\n\n` +
-        `<strong>Matched Skills:</strong><br>` +
-        (matched.length ? matched.map(m => `<span class="pill pill-match">${m}</span>`).join('') : 'None') +
-        `<br><br><strong>Missing / Unmentioned Skills:</strong><br>` +
-        (missing.length ? missing.map(m => `<span class="pill pill-miss">${m}</span>`).join('') : 'None — all keywords matched!') +
-        `\n\n<strong>Contact Details Detected:</strong>\n` +
-        `Email: ${emails[0] || 'Not found'} | Phone: ${phones[0] || 'Not found'}`;
+      const contactLine = blind
+        ? `<em>Hidden (Blind Review Mode Active)</em>`
+        : `Email: ${escapeHtml(emails[0] || 'Not detected')} | Phone: ${escapeHtml(phones[0] || 'Not detected')}`;
+
+      reportDiv.innerHTML =
+        `<div style="font-size:1.05rem; margin-bottom:0.75rem;"><strong>Keyword Match: ${scorePct}%</strong> (${matched.length} of ${keywords.length} criteria met)</div>` +
+        `<div style="margin-bottom:0.75rem;"><strong>Matched Criteria:</strong><br>` +
+        (matched.length ? matched.map(m => `<span class="pill pill-match">${escapeHtml(m)}</span>`).join('') : '<span style="color:var(--text-muted)">None</span>') +
+        `</div><div style="margin-bottom:0.75rem;"><strong>Missing / Unmentioned:</strong><br>` +
+        (missing.length ? missing.map(m => `<span class="pill pill-miss">${escapeHtml(m)}</span>`).join('') : '<span style="color:var(--success-text)">All criteria matched!</span>') +
+        `</div><div style="border-top:1px solid var(--border); padding-top:0.6rem; font-size:0.85rem;"><strong>Candidate Contact:</strong> ${contactLine}</div>`;
     }
 
-    // --- 4. HR CALCULATORS ---
+    function copyReport() {
+      const text = document.getElementById('resumeReport').innerText;
+      navigator.clipboard.writeText(text);
+      showToast('Screening summary copied.');
+    }
+
+    // --- TAB 4: INSTANT HR CALCULATORS ---
+    function initDefaultDates() {
+      const today = new Date();
+      const yyyy = today.getFullYear();
+      const isoToday = today.toISOString().split('T')[0];
+      document.getElementById('hireDate').value = isoToday;
+      document.getElementById('yearEnd').value = `${yyyy}-12-31`;
+      document.getElementById('tenureEnd').value = isoToday;
+      calcPto();
+    }
+
     function calcPto() {
       const annual = parseFloat(document.getElementById('annualPto').value);
-      const start = new Date(document.getElementById('hireDate').value);
-      const end = new Date(document.getElementById('yearEnd').value);
+      const startVal = document.getElementById('hireDate').value;
+      const endVal = document.getElementById('yearEnd').value;
       const out = document.getElementById('ptoResult');
 
-      if (isNaN(annual) || isNaN(start) || isNaN(end) || end < start) {
-        out.textContent = 'Please enter valid dates and annual allowance.';
+      if (!startVal || !endVal || isNaN(annual)) {
+        out.style.display = 'none';
+        return;
+      }
+
+      const start = new Date(startVal + 'T00:00:00');
+      const end = new Date(endVal + 'T00:00:00');
+      out.style.display = 'block';
+
+      if (end < start) {
+        out.innerHTML = `<span style="color:var(--danger-text)">End date must be on or after start date.</span>`;
         return;
       }
 
@@ -422,17 +843,26 @@
       const fraction = Math.min(1, daysRemaining / 365);
       const prorated = (annual * fraction).toFixed(2);
 
-      out.textContent = `Prorated PTO: ${prorated} days/hours (${daysRemaining} active calendar days in benefit year).`;
+      out.innerHTML = `Prorated Allowance: <strong>${prorated} days/hours</strong><br><span style="font-size:0.82rem; color:var(--text-muted);">Based on ${daysRemaining} active calendar days (${Math.round(fraction * 100)}% of a 365-day year).</span>`;
     }
 
     function calcTenure() {
-      const start = new Date(document.getElementById('tenureStart').value);
-      const end = new Date(document.getElementById('tenureEnd').value);
+      const startVal = document.getElementById('tenureStart').value;
+      const endVal = document.getElementById('tenureEnd').value;
       const mult = parseFloat(document.getElementById('weeksPerYear').value) || 0;
       const out = document.getElementById('tenureResult');
 
-      if (isNaN(start) || isNaN(end) || end < start) {
-        out.textContent = 'Please enter valid start and end dates.';
+      if (!startVal || !endVal) {
+        out.style.display = 'none';
+        return;
+      }
+
+      const start = new Date(startVal + 'T00:00:00');
+      const end = new Date(endVal + 'T00:00:00');
+      out.style.display = 'block';
+
+      if (end < start) {
+        out.innerHTML = `<span style="color:var(--danger-text)">Reference date must be after hire date.</span>`;
         return;
       }
 
@@ -441,23 +871,25 @@
       const years = totalDays / 365.25;
       const estWeeks = (years * mult).toFixed(1);
 
-      out.textContent = `Total Tenure: ${years.toFixed(2)} years (${totalDays} days) — Estimated Entitlement: ${estWeeks} weeks.`;
+      out.innerHTML = `Total Tenure: <strong>${years.toFixed(2)} years</strong> (${totalDays.toLocaleString()} days)<br>Estimated Entitlement: <strong>${estWeeks} weeks</strong> <span style="font-size:0.82rem; color:var(--text-muted);">(@ ${mult} wks/yr)</span>`;
     }
 
-    // --- BACKUP / RESTORE ---
+    // --- BACKUP & RESTORE ---
     function exportBackup() {
-      const data = {
+      const payload = {
         handbook: handbookBox.value,
-        hrSender: document.getElementById('hrSender').value,
+        signature: document.getElementById('hrSender').value,
+        keywords: document.getElementById('reqKeywords').value,
         exportedAt: new Date().toISOString()
       };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'hr-toolkit-backup.json';
+      a.download = `hr-workspace-backup-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
+      showToast('Backup JSON downloaded.');
     }
 
     function importBackup(e) {
@@ -467,21 +899,45 @@
       reader.onload = (ev) => {
         try {
           const data = JSON.parse(ev.target.result);
-          if (data.handbook) {
+          if (data.handbook !== undefined) {
             handbookBox.value = data.handbook;
-            localStorage.setItem('hr_lite_handbook', data.handbook);
+            localStorage.setItem('hr_ws_handbook', data.handbook);
           }
-          if (data.hrSender) {
-            document.getElementById('hrSender').value = data.hrSender;
-            renderDocument();
+          if (data.signature !== undefined) {
+            document.getElementById('hrSender').value = data.signature;
+            localStorage.setItem('hr_ws_signature', data.signature);
           }
-          alert('Backup restored.');
+          if (data.keywords !== undefined) {
+            document.getElementById('reqKeywords').value = data.keywords;
+            localStorage.setItem('hr_ws_keywords', data.keywords);
+          }
+          buildQuickChips();
+          searchPolicy();
+          renderDocument();
+          showToast('Workspace data restored.');
         } catch {
-          alert('Invalid JSON file.');
+          showToast('Error: Invalid backup JSON file.');
         }
       };
       reader.readAsText(file);
     }
+
+    // --- UTILITIES & INIT ---
+    function escapeHtml(str) {
+      return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function escapeRegex(str) {
+      return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Restore saved settings on boot
+    document.getElementById('hrSender').value = localStorage.getItem('hr_ws_signature') || '';
+    document.getElementById('reqKeywords').value = localStorage.getItem('hr_ws_keywords') || '';
+    handleTemplateChange();
+    buildQuickChips();
+    searchPolicy();
+    initDefaultDates();
   </script>
 </body>
 </html>
