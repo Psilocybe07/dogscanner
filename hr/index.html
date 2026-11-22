@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Portable HR Toolkit (Zero-Download)</title>
+  <style>
+    :root {
+      --bg: #f1f5f9;
+      --card: #ffffff;
+      --text: #0f172a;
+      --muted: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --border: #cbd5e1;
+      --tab-active: #eff6ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 1050px; margin: 0 auto; }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      gap: 1rem;
+    }
+    h1 { margin: 0; font-size: 1.4rem; }
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 0.5rem;
+    }
+    .tab-btn {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid transparent;
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .tab-btn.active {
+      background: var(--tab-active);
+      color: var(--primary);
+      border-color: #bfdbfe;
+    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.25rem;
+    }
+    @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .card h2 {
+      margin: 0 0 0.85rem 0;
+      font-size: 1.05rem;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 0.45rem;
+    }
+    label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; }
+    input, select, textarea {
+      width: 100%;
+      padding: 0.55rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.9rem;
+      margin-bottom: 0.85rem;
+    }
+    button.action {
+      background: var(--primary);
+      color: #fff;
+      border: none;
+      padding: 0.55rem 1.1rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.action:hover { background: var(--primary-hover); }
+    button.secondary {
+      background: #e2e8f0;
+      color: #1e293b;
+      border: none;
+      padding: 0.55rem 1rem;
+      border-radius: 6px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary:hover { background: #cbd5e1; }
+    .output-box {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 1rem;
+      white-space: pre-wrap;
+      min-height: 220px;
+      font-size: 0.92rem;
+    }
+    .pill {
+      display: inline-block;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin: 0.2rem;
+    }
+    .pill-match { background: #dcfce7; color: #166534; }
+    .pill-miss { background: #fee2e2; color: #991b1b; }
+    .policy-hit {
+      background: #fff;
+      border-left: 4px solid var(--primary);
+      padding: 0.75rem;
+      margin-bottom: 0.75rem;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    mark { background: #fef08a; padding: 0 2px; border-radius: 2px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Portable HR Assistant</h1>
+        <small style="color: var(--muted);">Instant Local Engine — Zero Downloads, Zero Internet Required</small>
+      </div>
+      <div>
+        <button class="secondary" onclick="exportBackup()">Export Backup (.json)</button>
+        <button class="secondary" onclick="document.getElementById('importFile').click()">Import Backup</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importBackup(event)" />
+      </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('tab-docs', this)">1. Document & Email Builder</button>
+      <button class="tab-btn" onclick="switchTab('tab-policy', this)">2. Policy & Handbook Search</button>
+      <button class="tab-btn" onclick="switchTab('tab-resume', this)">3. Resume Keyword Screener</button>
+      <button class="tab-btn" onclick="switchTab('tab-calc', this)">4. HR Calculators</button>
+    </div>
+
+    <!-- TAB 1: DOCUMENT & EMAIL BUILDER -->
+    <div id="tab-docs" class="tab-panel active">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Template & Details</h2>
+          <label for="docTemplate">Select HR Document / Email:</label>
+          <select id="docTemplate" onchange="renderDocument()">
+            <option value="offer">Formal Job Offer Summary</option>
+            <option value="interview_invite">Interview Invitation Email</option>
+            <option value="rejection_post">Post-Interview Rejection Email</option>
+            <option value="onboarding">New Hire Welcome & Day 1 Info</option>
+            <option value="pip">Performance Improvement Plan (PIP) Notice</option>
+            <option value="verification">Employment Verification Letter</option>
+          </select>
+
+          <label for="candName">Employee / Candidate Name:</label>
+          <input type="text" id="candName" placeholder="e.g., Alex Morgan" oninput="renderDocument()" />
+
+          <label for="roleTitle">Job Title / Department:</label>
+          <input type="text" id="roleTitle" placeholder="e.g., Senior Operations Coordinator" oninput="renderDocument()" />
+
+          <label for="keyDate">Start Date / Interview Date / Deadline:</label>
+          <input type="text" id="keyDate" placeholder="e.g., Monday, December 7, 2026" oninput="renderDocument()" />
+
+          <label for="compOrNotes">Compensation / Specific Details / Notes:</label>
+          <textarea id="compOrNotes" rows="3" placeholder="e.g., $72,000/year, 15 days PTO, reporting to Sarah Jenkins" oninput="renderDocument()"></textarea>
+
+          <label for="hrSender">Your Name & HR Title:</label>
+          <input type="text" id="hrSender" placeholder="e.g., Jordan Lee, HR Manager" oninput="renderDocument()" />
+        </div>
+
+        <div class="card">
+          <h2>Generated Draft (Editable)</h2>
+          <textarea id="docOutput" rows="16" style="font-family: inherit;"></textarea>
+          <button class="action" onclick="copyText('docOutput')">Copy to Clipboard</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: POLICY & HANDBOOK SEARCH -->
+    <div id="tab-policy" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Saved Company Handbook / Policies</h2>
+          <label for="handbookText">Paste Handbook Sections (Separate sections with a blank line):</label>
+          <textarea id="handbookText" rows="12" placeholder="Paste your company policies here. Separate each section with an empty line so the search engine can rank and highlight matching paragraphs."></textarea>
+          <button class="action" onclick="saveHandbook()">Save Handbook Locally</button>
+        </div>
+
+        <div class="card">
+          <h2>Instant Policy Search</h2>
+          <label for="policyQuery">Ask a Question or Enter Keywords:</label>
+          <input type="text" id="policyQuery" placeholder="e.g., parental leave notice, sick days, remote work" oninput="searchPolicy()" />
+          <div id="policyResults" style="max-height: 360px; overflow-y: auto;">
+            <small style="color: var(--muted);">Type keywords above to search your saved handbook sections.</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: RESUME KEYWORD SCREENER -->
+    <div id="tab-resume" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Inputs</h2>
+          <label for="reqKeywords">Required Skills / Keywords (comma-separated):</label>
+          <input type="text" id="reqKeywords" placeholder="e.g., Excel, Payroll, Onboarding, HRIS, Conflict Resolution, Compliance" />
+
+          <label for="resumeText">Paste Candidate Resume Text:</label>
+          <textarea id="resumeText" rows="11" placeholder="Paste plain text from the candidate's resume here..."></textarea>
+
+          <button class="action" onclick="screenResume()">Analyze Match & Redact PII</button>
+        </div>
+
+        <div class="card">
+          <h2>Screening Report</h2>
+          <div id="resumeReport" class="output-box">Enter required keywords and paste a resume to see a breakdown.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: HR CALCULATORS -->
+    <div id="tab-calc" class="tab-panel">
+      <div class="grid-2">
+        <div class="card">
+          <h2>Prorated PTO / Vacation Calculator</h2>
+          <label for="annualPto">Annual PTO Allowance (Days or Hours):</label>
+          <input type="number" id="annualPto" value="15" />
+
+          <label for="hireDate">Employee Start Date:</label>
+          <input type="date" id="hireDate" />
+
+          <label for="yearEnd">Benefit Year End Date:</label>
+          <input type="date" id="yearEnd" />
+
+          <button class="action" onclick="calcPto()">Calculate Prorated PTO</button>
+          <div id="ptoResult" style="margin-top: 1rem; font-weight: 600;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Tenure & Notice / Severance Estimator</h2>
+          <label for="tenureStart">Hire Date:</label>
+          <input type="date" id="tenureStart" />
+
+          <label for="tenureEnd">Termination / Reference Date:</label>
+          <input type="date" id="tenureEnd" />
+
+          <label for="weeksPerYear">Company Policy Multiplier (Weeks per Year of Service):</label>
+          <input type="number" id="weeksPerYear" value="2" step="0.5" />
+
+          <button class="action" onclick="calcTenure()">Calculate Tenure & Weeks</button>
+          <div id="tenureResult" style="margin-top: 1rem; font-weight: 600;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- TAB SWITCHING ---
+    function switchTab(tabId, btn) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      btn.classList.add('active');
+    }
+
+    // --- 1. DOCUMENT & EMAIL TEMPLATES ---
+    const TEMPLATES = {
+      offer: (d) => `Subject: Formal Offer of Employment — ${d.role}\n\nDear ${d.name},\n\nWe are pleased to offer you the position of ${d.role}. Your anticipated start date is ${d.date}.\n\nKey Offer Terms:\n- Position: ${d.role}\n- Start Date: ${d.date}\n- Compensation & Details: ${d.notes}\n\nPlease review the attached formal agreement and let us know if you have any questions. We are excited about the prospect of you joining our team.\n\nWarm regards,\n${d.sender}`,
+      interview_invite: (d) => `Subject: Interview Invitation — ${d.role}\n\nHi ${d.name},\n\nThank you for applying for the ${d.role} position. We were impressed with your background and would love to invite you for an interview.\n\nProposed Time: ${d.date}\nAdditional Details: ${d.notes}\n\nPlease reply to confirm if this time works for you or share your availability.\n\nBest regards,\n${d.sender}`,
+      rejection_post: (d) => `Subject: Update on your application for ${d.role}\n\nDear ${d.name},\n\nThank you for taking the time to speak with our team regarding the ${d.role} position. We truly appreciate the effort you put into the interview process.\n\nAfter careful consideration, we have decided to move forward with another candidate whose background more closely aligns with our current needs. ${d.notes ? d.notes + '\n\n' : ''}We will keep your resume on file for future openings and wish you every success in your job search.\n\nSincerely,\n${d.sender}`,
+      onboarding: (d) => `Subject: Welcome to the Team! Your First Day Details (${d.date})\n\nHi ${d.name},\n\nWelcome aboard! We are thrilled to have you join us as our new ${d.role} starting on ${d.date}.\n\nFirst Day Checklist & Info:\n- ${d.notes}\n- Please bring government-issued photo ID and banking details for payroll setup.\n\nReach out anytime before your start date if you have questions.\n\nBest,\n${d.sender}`,
+      pip: (d) => `CONFIDENTIAL — PERFORMANCE IMPROVEMENT PLAN (PIP)\n\nEmployee: ${d.name}\nRole: ${d.role}\nReview / Target Date: ${d.date}\n\n1. Purpose:\nThis document outlines specific performance areas requiring immediate and sustained improvement.\n\n2. Areas for Improvement & Expectations:\n${d.notes}\n\n3. Support & Check-Ins:\nRegular progress check-ins will be held leading up to ${d.date} to review milestones and provide feedback.\n\nIssued by: ${d.sender}`,
+      verification: (d) => `To Whom It May Concern,\n\nThis letter confirms that ${d.name} is employed with our organization in the role of ${d.role}.\n\nEmployment Details:\n- Effective / Hire Date: ${d.date}\n- Additional Confirmed Information: ${d.notes}\n\nIf you require further verification, please contact Human Resources directly.\n\nSincerely,\n${d.sender}`
+    };
+
+    function renderDocument() {
+      const tpl = document.getElementById('docTemplate').value;
+      const data = {
+        name: document.getElementById('candName').value.trim() || '[Employee/Candidate Name]',
+        role: document.getElementById('roleTitle').value.trim() || '[Job Title]',
+        date: document.getElementById('keyDate').value.trim() || '[Date]',
+        notes: document.getElementById('compOrNotes').value.trim() || '[Insert specific details here]',
+        sender: document.getElementById('hrSender').value.trim() || '[Your Name, HR]'
+      };
+      document.getElementById('docOutput').value = TEMPLATES[tpl](data);
+    }
+    renderDocument();
+
+    function copyText(id) {
+      const el = document.getElementById(id);
+      navigator.clipboard.writeText(el.value || el.textContent);
+      alert('Copied to clipboard.');
+    }
+
+    // --- 2. POLICY & HANDBOOK SEARCH ---
+    const DEFAULT_HANDBOOK = `PTO & Vacation Policy:\nFull-time employees accrue 15 days of paid time off (PTO) per calendar year, prorated based on hire date. Vacation requests of 3 or more consecutive days require at least 2 weeks advance notice to your manager.\n\nSick & Personal Leave:\nEmployees receive up to 5 paid sick days per year for personal illness or medical appointments. Please notify your supervisor before your scheduled shift start time.\n\nParental Leave:\nEmployees with at least 12 months of continuous service are eligible for company parental leave top-up benefits. Please notify HR at least 4 weeks prior to expected leave start date.\n\nRemote & Hybrid Work:\nEligible roles may work remotely up to 2 days per week with manager approval. Core collaboration hours are 10:00 AM to 3:00 PM local time.`;
+
+    const handbookBox = document.getElementById('handbookText');
+    handbookBox.value = localStorage.getItem('hr_lite_handbook') || DEFAULT_HANDBOOK;
+
+    function saveHandbook() {
+      localStorage.setItem('hr_lite_handbook', handbookBox.value);
+      searchPolicy();
+      alert('Handbook saved locally in browser storage.');
+    }
+
+    function searchPolicy() {
+      const query = document.getElementById('policyQuery').value.trim().toLowerCase();
+      const resultsDiv = document.getElementById('policyResults');
+      const text = handbookBox.value.trim();
+
+      if (!query) {
+        resultsDiv.innerHTML = '<small style="color: var(--muted);">Type keywords above to search your saved handbook sections.</small>';
+        return;
+      }
+
+      const stopWords = new Set(['the', 'and', 'for', 'are', 'with', 'how', 'what', 'can', 'does', 'is', 'to', 'of', 'in', 'a']);
+      const terms = query.split(/\W+/).filter(w => w.length > 2 && !stopWords.has(w));
+      if (terms.length === 0) return;
+
+      const sections = text.split(/\n\s*\n/).filter(s => s.trim().length > 0);
+      const scored = sections.map(sec => {
+        const lower = sec.toLowerCase();
+        let score = 0;
+        terms.forEach(t => {
+          const matches = lower.split(t).length - 1;
+          score += matches;
+        });
+        return { sec, score };
+      }).filter(item => item.score > 0).sort((a, b) => b.score - a.score);
+
+      if (scored.length === 0) {
+        resultsDiv.innerHTML = '<p style="color:#991b1b; font-size:0.9rem;">No matching policy section found in the loaded handbook.</p>';
+        return;
+      }
+
+      resultsDiv.innerHTML = scored.map(item => {
+        let highlighted = item.sec.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        terms.forEach(t => {
+          const regex = new RegExp(`(${t})`, 'gi');
+          highlighted = highlighted.replace(regex, '<mark>$1</mark>');
+        });
+        return `<div class="policy-hit">${highlighted.replace(/\n/g, '<br>')}</div>`;
+      }).join('');
+    }
+
+    // --- 3. RESUME KEYWORD SCREENER ---
+    function screenResume() {
+      const kwRaw = document.getElementById('reqKeywords').value;
+      const resume = document.getElementById('resumeText').value;
+      const reportDiv = document.getElementById('resumeReport');
+
+      if (!kwRaw.trim() || !resume.trim()) {
+        reportDiv.textContent = 'Please enter both required keywords and resume text.';
+        return;
+      }
+
+      const keywords = kwRaw.split(',').map(k => k.trim()).filter(Boolean);
+      const resumeLower = resume.toLowerCase();
+      const matched = [];
+      const missing = [];
+
+      keywords.forEach(kw => {
+        if (resumeLower.includes(kw.toLowerCase())) {
+          matched.push(kw);
+        } else {
+          missing.push(kw);
+        }
+      });
+
+      const scorePct = Math.round((matched.length / keywords.length) * 100);
+
+      // Extract & mask sensitive PII for blind review
+      const emails = resume.match(/\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g) || [];
+      const phones = resume.match(/(\+?\d{1,2}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/g) || [];
+
+      reportDiv.innerHTML = `<strong>Match Score: ${scorePct}% (${matched.length} of ${keywords.length} keywords)</strong>\n\n` +
+        `<strong>Matched Skills:</strong><br>` +
+        (matched.length ? matched.map(m => `<span class="pill pill-match">${m}</span>`).join('') : 'None') +
+        `<br><br><strong>Missing / Unmentioned Skills:</strong><br>` +
+        (missing.length ? missing.map(m => `<span class="pill pill-miss">${m}</span>`).join('') : 'None — all keywords matched!') +
+        `\n\n<strong>Contact Details Detected:</strong>\n` +
+        `Email: ${emails[0] || 'Not found'} | Phone: ${phones[0] || 'Not found'}`;
+    }
+
+    // --- 4. HR CALCULATORS ---
+    function calcPto() {
+      const annual = parseFloat(document.getElementById('annualPto').value);
+      const start = new Date(document.getElementById('hireDate').value);
+      const end = new Date(document.getElementById('yearEnd').value);
+      const out = document.getElementById('ptoResult');
+
+      if (isNaN(annual) || isNaN(start) || isNaN(end) || end < start) {
+        out.textContent = 'Please enter valid dates and annual allowance.';
+        return;
+      }
+
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const daysRemaining = Math.floor((end - start) / msPerDay) + 1;
+      const fraction = Math.min(1, daysRemaining / 365);
+      const prorated = (annual * fraction).toFixed(2);
+
+      out.textContent = `Prorated PTO: ${prorated} days/hours (${daysRemaining} active calendar days in benefit year).`;
+    }
+
+    function calcTenure() {
+      const start = new Date(document.getElementById('tenureStart').value);
+      const end = new Date(document.getElementById('tenureEnd').value);
+      const mult = parseFloat(document.getElementById('weeksPerYear').value) || 0;
+      const out = document.getElementById('tenureResult');
+
+      if (isNaN(start) || isNaN(end) || end < start) {
+        out.textContent = 'Please enter valid start and end dates.';
+        return;
+      }
+
+      const msPerDay = 1000 * 60 * 60 * 24;
+      const totalDays = Math.floor((end - start) / msPerDay);
+      const years = totalDays / 365.25;
+      const estWeeks = (years * mult).toFixed(1);
+
+      out.textContent = `Total Tenure: ${years.toFixed(2)} years (${totalDays} days) — Estimated Entitlement: ${estWeeks} weeks.`;
+    }
+
+    // --- BACKUP / RESTORE ---
+    function exportBackup() {
+      const data = {
+        handbook: handbookBox.value,
+        hrSender: document.getElementById('hrSender').value,
+        exportedAt: new Date().toISOString()
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'hr-toolkit-backup.json';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importBackup(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        try {
+          const data = JSON.parse(ev.target.result);
+          if (data.handbook) {
+            handbookBox.value = data.handbook;
+            localStorage.setItem('hr_lite_handbook', data.handbook);
+          }
+          if (data.hrSender) {
+            document.getElementById('hrSender').value = data.hrSender;
+            renderDocument();
+          }
+          alert('Backup restored.');
+        } catch {
+          alert('Invalid JSON file.');
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
