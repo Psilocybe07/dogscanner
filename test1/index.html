@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Scanner & Mesh Studio</title>
+
+  <!-- Tailwind CSS for clean, responsive studio layout -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Inter & JetBrains Mono Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Import Map for Three.js & Official Addons -->
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom minimalist studio styling & range slider precision */
+    :root {
+      --bg-canvas: #090a0f;
+      --panel-bg: rgba(15, 17, 24, 0.78);
+      --panel-border: rgba(255, 255, 255, 0.09);
+      --accent: #38bdf8;
+      --accent-dim: rgba(56, 189, 248, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-canvas);
+      color: #f1f5f9;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--panel-border);
+      box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.55);
+    }
+
+    /* Clean studio range inputs */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #38bdf8;
+      border: 2px solid #090a0f;
+      cursor: pointer;
+      transition: transform 0.12s ease, background-color 0.12s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+      background: #7dd3fc;
+    }
+
+    /* Subtle scrollbar for compact panels on smaller viewports */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 999px;
+    }
+  </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden bg-[#090a0f] text-slate-100">
+
+  <!-- Full-Viewport 3D Canvas Container -->
+  <div id="viewport-container" class="absolute inset-0 w-full h-full z-0"></div>
+
+  <!-- Optional Live Camera Picture-in-Picture Feed (Hidden until enabled) -->
+  <div id="camera-pip" class="hidden fixed bottom-24 left-4 sm:left-6 z-20 w-44 sm:w-56 aspect-video rounded-xl overflow-hidden glass-panel border border-sky-500/30">
+    <video id="webcam-video" autoplay playsinline muted class="w-full h-full object-cover"></video>
+    <div class="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-black/70 text-[10px] font-mono-tech text-emerald-400">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> LIVE SENSOR
+    </div>
+    <button id="btn-stop-camera" title="Close Live Camera" class="absolute top-2 right-2 p-1 rounded-md bg-black/70 hover:bg-rose-500/80 text-slate-200 transition-colors">
+      <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+    </button>
+  </div>
+
+  <!-- TOP BAR: Minimalist Header, 3-Stage Stepper, and Backend Renderer Badge -->
+  <header class="fixed top-0 inset-x-0 z-20 pointer-events-none px-4 sm:px-6 pt-4 flex flex-col md:flex-row items-center justify-between gap-3">
+    <!-- Brand & Hardware Acceleration Status -->
+    <div class="pointer-events-auto glass-panel rounded-xl px-3.5 py-2 flex items-center gap-3">
+      <div class="w-7 h-7 rounded-lg bg-sky-500/15 border border-sky-400/30 flex items-center justify-center text-sky-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-9-5.25L3 7.5m18 0l-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+        </svg>
+      </div>
+      <div>
+        <div class="text-xs font-semibold tracking-wide text-slate-100 leading-tight">VOLUMETRIC STUDIO</div>
+        <div class="flex items-center gap-1.5 mt-0.5">
+          <span id="backend-dot" class="w-1.5 h-1.5 rounded-full bg-sky-400"></span>
+          <span id="backend-label" class="text-[10px] font-mono-tech text-slate-400 uppercase tracking-wider">Initializing GPU...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3-Stage Workflow Stepper -->
+    <nav aria-label="Workflow Stages" class="pointer-events-auto glass-panel rounded-xl p-1 flex items-center gap-1">
+      <button id="tab-stage-1" data-stage="1" class="stage-tab px-3 sm:px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 bg-sky-500/20 text-sky-300 border border-sky-400/30">
+        <span class="font-mono-tech text-[11px] opacity-80">01</span>
+        <span>Capture</span>
+      </button>
+      <div class="w-3 h-[1px] bg-white/10"></div>
+      <button id="tab-stage-2" data-stage="2" class="stage-tab px-3 sm:px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-slate-200 border border-transparent">
+        <span class="font-mono-tech text-[11px] opacity-80">02</span>
+        <span>Reconstruct</span>
+      </button>
+      <div class="w-3 h-[1px] bg-white/10"></div>
+      <button id="tab-stage-3" data-stage="3" class="stage-tab px-3 sm:px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-slate-200 border border-transparent">
+        <span class="font-mono-tech text-[11px] opacity-80">03</span>
+        <span>Inspect & Export</span>
+      </button>
+    </nav>
+
+    <!-- Live Telemetry Pill -->
+    <div class="hidden lg:flex pointer-events-auto glass-panel rounded-xl px-3.5 py-2 items-center gap-4 text-[11px] font-mono-tech text-slate-400">
+      <div>
+        <span class="text-slate-500">VERTS</span>
+        <span id="hud-verts" class="text-slate-200 ml-1">0</span>
+      </div>
+      <div class="w-[1px] h-3 bg-white/10"></div>
+      <div>
+        <span class="text-slate-500">TRIS</span>
+        <span id="hud-tris" class="text-slate-200 ml-1">0</span>
+      </div>
+      <div class="w-[1px] h-3 bg-white/10"></div>
+      <div>
+        <span class="text-slate-500">FPS</span>
+        <span id="hud-fps" class="text-emerald-400 ml-1">60</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- STAGE 1 HUD: CAPTURE & LIVE COVERAGE GUIDANCE                         -->
+  <!-- ===================================================================== -->
+  <section id="panel-stage-1" class="stage-panel pointer-events-none fixed inset-0 z-10 flex flex-col justify-between p-4 sm:p-6 pt-24 md:pt-20">
+    <!-- Top-Left & Top-Right Telemetry Cards -->
+    <div class="flex flex-col sm:flex-row justify-between items-start gap-3">
+      <!-- Motion & Tracking Stability Card -->
+      <div class="pointer-events-auto glass-panel rounded-xl p-3.5 w-full sm:w-64 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Sensor Telemetry</span>
+          <span id="motion-badge" class="px-2 py-0.5 rounded-md text-[10px] font-mono-tech bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">OPTIMAL SPEED</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2 pt-1">
+          <div class="bg-white/[0.03] rounded-lg p-2 border border-white/5">
+            <div class="text-[10px] text-slate-500">KEYFRAMES</div>
+            <div id="keyframe-count" class="text-sm font-mono-tech font-semibold text-slate-100 mt-0.5">0 / 72</div>
+          </div>
+          <div class="bg-white/[0.03] rounded-lg p-2 border border-white/5">
+            <div class="text-[10px] text-slate-500">COVERAGE</div>
+            <div id="coverage-percent" class="text-sm font-mono-tech font-semibold text-sky-400 mt-0.5">0%</div>
+          </div>
+        </div>
+        <div class="text-[11px] text-slate-400 leading-relaxed">
+          Orbit around the part or use auto-scan to capture all 36 sectors. Green sectors indicate locked surface keyframes.
+        </div>
+      </div>
+
+      <!-- Input Source & Scan Mode Controls -->
+      <div class="pointer-events-auto glass-panel rounded-xl p-3.5 w-full sm:w-64 space-y-2.5">
+        <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Input Source</div>
+        <div class="grid grid-cols-2 gap-1.5">
+          <button id="btn-source-sim" class="px-2.5 py-2 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30 transition-colors">
+            3D Part Sim
+          </button>
+          <button id="btn-source-cam" class="px-2.5 py-2 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10 transition-colors">
+            Use Live Camera
+          </button>
+        </div>
+        <div class="pt-1 border-t border-white/10 flex items-center justify-between text-xs">
+          <span class="text-slate-400">Subject Preset</span>
+          <select id="select-subject" class="bg-slate-900/90 border border-white/15 rounded-lg px-2 py-1 text-xs text-slate-200 outline-none focus:border-sky-400">
+            <option value="flange">CNC Machined Flange</option>
+            <option value="manifold">Impeller Housing</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center-Bottom Coverage Ring & Primary Capture Controls -->
+    <div class="pointer-events-auto mx-auto glass-panel rounded-2xl px-5 py-3.5 flex flex-wrap items-center justify-center gap-4 sm:gap-6">
+      <!-- Live 36-Sector Coverage Guidance Ring SVG -->
+      <div class="relative w-14 h-14 flex items-center justify-center">
+        <svg id="coverage-ring-svg" class="w-14 h-14 -rotate-90" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="5" />
+          <g id="coverage-sectors"></g>
+        </svg>
+        <span id="ring-center-text" class="absolute text-[11px] font-mono-tech font-semibold text-slate-200">0%</span>
+      </div>
+
+      <div class="flex flex-col gap-1">
+        <div class="text-xs font-semibold text-slate-100">360° Volumetric Capture</div>
+        <div id="capture-hint" class="text-[11px] text-slate-400">Drag viewport to scan manually or run automated turntable sweep.</div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="btn-toggle-autoscan" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-colors flex items-center gap-2 shadow-lg shadow-sky-500/20">
+          <span id="autoscan-icon" class="w-2 h-2 rounded-full bg-slate-950"></span>
+          <span id="autoscan-label">Start Auto-Scan</span>
+        </button>
+        <button id="btn-reset-scan" class="px-3 py-2.5 rounded-xl text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border border-white/10 transition-colors">
+          Reset
+        </button>
+        <button id="btn-to-reconstruct" class="px-4 py-2.5 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-400/30 transition-colors">
+          Reconstruct &rarr;
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- STAGE 2 HUD: RECONSTRUCTION, GAUSSIAN SPLAT & CLEANUP                 -->
+  <!-- ===================================================================== -->
+  <section id="panel-stage-2" class="stage-panel hidden pointer-events-none fixed inset-0 z-10 flex flex-col justify-between p-4 sm:p-6 pt-24 md:pt-20">
+    <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+      <!-- Left: Reconstruction Pipeline & Representation Toggle -->
+      <div class="pointer-events-auto glass-panel rounded-xl p-4 w-full md:w-80 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Reconstruction Pipeline</span>
+          <span id="recon-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono-tech bg-sky-500/20 text-sky-300">READY</span>
+        </div>
+
+        <!-- Pipeline Progress Steps -->
+        <div class="space-y-2 text-xs">
+          <div class="flex items-center justify-between text-slate-300">
+            <span>1. Sparse Feature Alignment</span>
+            <span id="step-1-pct" class="font-mono-tech text-emerald-400">100%</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div id="bar-step-1" class="h-full bg-emerald-400 transition-all duration-200" style="width: 100%"></div>
+          </div>
+
+          <div class="flex items-center justify-between text-slate-300 pt-1">
+            <span>2. Dense Point Cloud & Splatting</span>
+            <span id="step-2-pct" class="font-mono-tech text-emerald-400">100%</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div id="bar-step-2" class="h-full bg-emerald-400 transition-all duration-200" style="width: 100%"></div>
+          </div>
+
+          <div class="flex items-center justify-between text-slate-300 pt-1">
+            <span>3. Poisson Surface & UV Bake</span>
+            <span id="step-3-pct" class="font-mono-tech text-emerald-400">100%</span>
+          </div>
+          <div class="w-full h-1.5 rounded-full bg-white/10 overflow-hidden">
+            <div id="bar-step-3" class="h-full bg-emerald-400 transition-all duration-200" style="width: 100%"></div>
+          </div>
+        </div>
+
+        <!-- Representation Mode Toggle: Point Cloud vs Gaussian Splat vs Reconstructed Mesh -->
+        <div class="pt-2 border-t border-white/10 space-y-2">
+          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Preview Representation</div>
+          <div class="grid grid-cols-3 gap-1.5">
+            <button data-recon-view="points" class="recon-view-btn px-2 py-2 rounded-lg text-[11px] font-medium bg-white/[0.04] text-slate-300 border border-white/10 hover:bg-white/[0.08]">
+              Point Cloud
+            </button>
+            <button data-recon-view="splat" class="recon-view-btn px-2 py-2 rounded-lg text-[11px] font-medium bg-white/[0.04] text-slate-300 border border-white/10 hover:bg-white/[0.08]">
+              3D Gaussians
+            </button>
+            <button data-recon-view="mesh" class="recon-view-btn px-2 py-2 rounded-lg text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30">
+              Textured Mesh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: Automated Artifact Cleanup, Bounding-Box Crop & Polygon Decimation -->
+      <div class="pointer-events-auto glass-panel rounded-xl p-4 w-full md:w-80 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Geometry Cleanup</span>
+          <button id="btn-auto-clean" class="px-2.5 py-1 rounded-md text-[11px] font-medium bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-400/30 transition-colors">
+            Trim Outliers
+          </button>
+        </div>
+
+        <!-- Bounding Box Floor/Height Crop Slider -->
+        <div class="space-y-1.5">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-400">Turntable Base Crop</span>
+            <span id="crop-val-label" class="font-mono-tech text-slate-200">0%</span>
+          </div>
+          <input id="slider-crop" type="range" min="0" max="45" value="0" step="1" />
+          <div class="text-[10px] text-slate-500">Slices stray floor artifacts from the bottom bounding plane.</div>
+        </div>
+
+        <!-- Polygon Decimation / Target Density Slider -->
+        <div class="space-y-1.5 pt-2 border-t border-white/10">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-400">Mesh Resolution (Decimation)</span>
+            <span id="decimate-val-label" class="font-mono-tech text-slate-200">100%</span>
+          </div>
+          <input id="slider-decimate" type="range" min="20" max="100" value="100" step="5" />
+          <div class="flex justify-between text-[10px] font-mono-tech text-slate-500">
+            <span>Low-Poly CAD</span>
+            <span id="decimate-tri-preview" class="text-slate-300">14,400 tris</span>
+          </div>
+        </div>
+
+        <!-- Surface Smoothing Slider -->
+        <div class="space-y-1.5 pt-2 border-t border-white/10">
+          <div class="flex justify-between text-xs">
+            <span class="text-slate-400">Taubin Noise Smoothing</span>
+            <span id="smooth-val-label" class="font-mono-tech text-slate-200">25%</span>
+          </div>
+          <input id="slider-smooth" type="range" min="0" max="100" value="25" step="5" />
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Action Bar -->
+    <div class="pointer-events-auto mx-auto glass-panel rounded-2xl px-5 py-3 flex items-center gap-3">
+      <button id="btn-back-capture" class="px-3.5 py-2 rounded-xl text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border border-white/10 transition-colors">
+        &larr; Back to Capture
+      </button>
+      <button id="btn-rerun-recon" class="px-3.5 py-2 rounded-xl text-xs font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-200 border border-white/10 transition-colors">
+        Re-Solve Mesh
+      </button>
+      <button id="btn-to-inspect" class="px-4 py-2 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-colors shadow-lg shadow-sky-500/20">
+        Inspect & Export &rarr;
+      </button>
+    </div>
+  </section>
+
+  <!-- ===================================================================== -->
+  <!-- STAGE 3 HUD: INSPECT, METROLOGY & MULTI-FORMAT EXPORT                 -->
+  <!-- ===================================================================== -->
+  <section id="panel-stage-3" class="stage-panel hidden pointer-events-none fixed inset-0 z-10 flex flex-col justify-between p-4 sm:p-6 pt-24 md:pt-20">
+    <div class="flex flex-col md:flex-row justify-between items-start gap-4">
+      <!-- Left: Viewport Camera Presets & Shading Inspection Modes -->
+      <div class="pointer-events-auto glass-panel rounded-xl p-4 w-full md:w-72 space-y-4">
+        <div>
+          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400 mb-2">Camera Presets</div>
+          <div class="grid grid-cols-4 gap-1.5">
+            <button data-cam-preset="iso" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30">Iso</button>
+            <button data-cam-preset="front" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">Front</button>
+            <button data-cam-preset="top" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">Top</button>
+            <button data-cam-preset="side" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">Side</button>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-white/10">
+          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400 mb-2">Surface Shader Mode</div>
+          <div class="grid grid-cols-2 gap-1.5">
+            <button data-shade-mode="shaded" class="shade-mode-btn py-1.5 px-2.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30">PBR Shaded</button>
+            <button data-shade-mode="wireframe" class="shade-mode-btn py-1.5 px-2.5 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">Wireframe</button>
+            <button data-shade-mode="normals" class="shade-mode-btn py-1.5 px-2.5 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">Normals</button>
+            <button data-shade-mode="splat" class="shade-mode-btn py-1.5 px-2.5 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">Splat Cloud</button>
+          </div>
+        </div>
+
+        <div class="pt-3 border-t border-white/10 flex items-center justify-between">
+          <span class="text-xs text-slate-300">Bounding Box & Dimensions</span>
+          <input id="toggle-bbox" type="checkbox" checked class="w-4 h-4 accent-sky-400 rounded cursor-pointer" />
+        </div>
+      </div>
+
+      <!-- Right: Metrology Scale, Coordinate Axis & Export Panel -->
+      <div class="pointer-events-auto glass-panel rounded-xl p-4 w-full md:w-80 space-y-4">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-semibold uppercase tracking-wider text-slate-300">Metrology & Export</span>
+          <span class="text-[10px] font-mono-tech text-emerald-400">MANIFOLD OK</span>
+        </div>
+
+        <!-- Real-World Scale & Units -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-400">Physical Units</span>
+            <div class="inline-flex rounded-lg bg-white/[0.04] p-0.5 border border-white/10">
+              <button data-unit="mm" class="unit-btn px-2 py-0.5 rounded-md text-[11px] font-mono-tech bg-sky-500/25 text-sky-300">mm</button>
+              <button data-unit="cm" class="unit-btn px-2 py-0.5 rounded-md text-[11px] font-mono-tech text-slate-400 hover:text-slate-200">cm</button>
+              <button data-unit="m" class="unit-btn px-2 py-0.5 rounded-md text-[11px] font-mono-tech text-slate-400 hover:text-slate-200">m</button>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-slate-400">Reference Width</span>
+            <div class="flex items-center gap-1.5">
+              <input id="input-scale-width" type="number" value="120.0" step="1" min="1" max="10000" class="w-20 bg-slate-900/90 border border-white/15 rounded-lg px-2 py-1 text-right font-mono-tech text-xs text-slate-100 outline-none focus:border-sky-400" />
+              <span id="unit-suffix-label" class="font-mono-tech text-xs text-slate-400 w-6">mm</span>
+            </div>
+          </div>
+
+          <!-- Calculated Bounding Box Dimensions Readout -->
+          <div class="bg-white/[0.03] rounded-lg p-2.5 border border-white/5 grid grid-cols-3 gap-2 text-center font-mono-tech">
+            <div>
+              <div class="text-[9px] text-slate-500">WIDTH (X)</div>
+              <div id="dim-x" class="text-xs text-slate-200 mt-0.5">120.0</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-500">HEIGHT (Y)</div>
+              <div id="dim-y" class="text-xs text-slate-200 mt-0.5">64.2</div>
+            </div>
+            <div>
+              <div class="text-[9px] text-slate-500">DEPTH (Z)</div>
+              <div id="dim-z" class="text-xs text-slate-200 mt-0.5">120.0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Coordinate System Toggle: Y-Up vs Z-Up -->
+        <div class="pt-3 border-t border-white/10 flex items-center justify-between text-xs">
+          <div>
+            <div class="text-slate-300 font-medium">Up-Axis Convention</div>
+            <div class="text-[10px] text-slate-500">CAD/3D Print uses Z-Up</div>
+          </div>
+          <div class="inline-flex rounded-lg bg-white/[0.04] p-0.5 border border-white/10">
+            <button data-up-axis="Y" class="up-axis-btn px-2.5 py-1 rounded-md text-[11px] font-mono-tech bg-sky-500/25 text-sky-300">Y-Up</button>
+            <button data-up-axis="Z" class="up-axis-btn px-2.5 py-1 rounded-md text-[11px] font-mono-tech text-slate-400 hover:text-slate-200">Z-Up</button>
+          </div>
+        </div>
+
+        <!-- Direct Client-Side Mesh Export Buttons -->
+        <div class="pt-3 border-t border-white/10 space-y-2">
+          <div class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Download Mesh File</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="btn-export-stl-bin" class="py-2 px-3 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-colors">
+              STL (Binary)
+            </button>
+            <button id="btn-export-stl-ascii" class="py-2 px-3 rounded-xl text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/10 transition-colors">
+              STL (ASCII)
+            </button>
+            <button id="btn-export-obj" class="py-2 px-3 rounded-xl text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/10 transition-colors">
+              Wavefront .OBJ
+            </button>
+            <button id="btn-export-ply" class="py-2 px-3 rounded-xl text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/10 transition-colors">
+              Stanford .PLY
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Toast / Status Bar -->
+    <div class="pointer-events-auto mx-auto glass-panel rounded-xl px-4 py-2 flex items-center gap-3 text-xs text-slate-300">
+      <span class="text-slate-500">Controls:</span>
+      <span>Left-Drag Orbit</span>
+      <span class="text-white/15">&bull;</span>
+      <span>Right-Drag Pan</span>
+      <span class="text-white/15">&bull;</span>
+      <span>Scroll Zoom</span>
+    </div>
+  </section>
+
+  <!-- Non-blocking Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-6 right-6 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ===================================================================== -->
+  <!-- MODULAR ES6 APPLICATION LOGIC                                         -->
+  <!-- ===================================================================== -->
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+    /**
+     * Application State Store
+     */
+    const AppState = {
+      stage: 1, // 1: Capture, 2: Reconstruct, 3: Inspect & Export
+      subjectType: 'flange',
+      isAutoScanning: false,
+      capturedSectors: new Array(36).fill(false),
+      keyframes: 0,
+      lastCamAzimuth: null,
+      lastCamTime: performance.now(),
+      reconView: 'mesh', // 'points' | 'splat' | 'mesh'
+      cropPercent: 0,
+      decimationPercent: 100,
+      smoothingPercent: 25,
+      shadeMode: 'shaded', // 'shaded' | 'wireframe' | 'normals' | 'splat'
+      showBBox: true,
+      unit: 'mm', // 'mm' | 'cm' | 'm'
+      referenceWidth: 120.0,
+      upAxis: 'Y', // 'Y' | 'Z'
+      webcamStream: null
+    };
+
+    /**
+     * Non-blocking Studio Toast Helper
+     */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      const accentClass =
+        type === 'success'
+          ? 'border-emerald-500/40 text-emerald-300'
+          : type === 'warn'
+          ? 'border-amber-500/40 text-amber-300'
+          : 'border-sky-500/40 text-sky-300';
+
+      toast.className = `glass-panel px-4 py-2.5 rounded-xl text-xs font-medium border ${accentClass} shadow-xl transition-opacity duration-300`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    /**
+     * Renderer Initialization with WebGPU Detection & WebGL2 Fallback
+     */
+    async function initRenderer(container) {
+      const backendLabel = document.getElementById('backend-label');
+      const backendDot = document.getElementById('backend-dot');
+      let renderer = null;
+      let usingWebGPU = false;
+
+      // Check for WebGPU availability and try initializing Three.js WebGPURenderer
+      if (navigator.gpu) {
+        try {
+          const adapter = await navigator.gpu.requestAdapter();
+          if (adapter) {
+            const { WebGPURenderer } = await import('three/addons/renderers/webgpu/WebGPURenderer.js');
+            renderer = new WebGPURenderer({ antialias: true, powerPreference: 'high-performance' });
+            await renderer.init();
+            usingWebGPU = true;
+          }
+        } catch (err) {
+          console.warn('WebGPU initialization unavailable, falling back to WebGL2:', err);
+          renderer = null;
+        }
+      }
+
+      if (!renderer) {
+        renderer = new THREE.WebGLRenderer({
+          antialias: true,
+          powerPreference: 'high-performance'
+        });
+      }
+
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(container.clientWidth, container.clientHeight);
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1.12;
+      container.appendChild(renderer.domElement);
+
+      if (usingWebGPU) {
+        backendLabel.textContent = 'WebGPU Active';
+        backendDot.className = 'w-1.5 h-1.5 rounded-full bg-emerald-400';
+      } else {
+        backendLabel.textContent = 'WebGL2 Hardware';
+        backendDot.className = 'w-1.5 h-1.5 rounded-full bg-sky-400';
+      }
+
+      return renderer;
+    }
+
+    /**
+     * Procedural High-Detail 3D Scan Subject Generator
+     * Creates realistic mechanical geometry with surface micro-roughness & scan coverage vertex colors
+     */
+    function buildScanSubjectGeometry(type = 'flange', radialSegs = 96, heightSegs = 48) {
+      const positions = [];
+      const uvs = [];
+      const basePositions = [];
+      const smoothedPositions = [];
+
+      // Parametric surface definition for a machined mechanical part
+      const evalSurface = (u, v) => {
+        const theta = u * Math.PI * 2;
+        let r = 0;
+        let y = 0;
+
+        if (type === 'flange') {
+          // Stepped CNC mechanical flange with bolt bosses & collar
+          if (v < 0.25) {
+            // Base flange disc
+            const t = v / 0.25;
+            r = 0.35 + t * 0.85;
+            y = -0.45;
+          } else if (v < 0.42) {
+            // Outer rim wall with 6 bolt lobe bosses
+            const t = (v - 0.25) / 0.17;
+            const lobe = 0.08 * Math.pow(Math.max(0, Math.cos(theta * 6)), 4);
+            r = 1.2 + lobe;
+            y = -0.45 + t * 0.26;
+          } else if (v < 0.55) {
+            // Flange shoulder step
+            const t = (v - 0.42) / 0.13;
+            const lobe = 0.08 * (1 - t) * Math.pow(Math.max(0, Math.cos(theta * 6)), 4);
+            r = 1.2 - t * 0.52 + lobe;
+            y = -0.19;
+          } else if (v < 0.88) {
+            // Upper cylindrical neck with cooling ribs
+            const t = (v - 0.55) / 0.33;
+            const rib = 0.035 * Math.sin(t * Math.PI * 6);
+            r = 0.68 + rib;
+            y = -0.19 + t * 0.78;
+          } else {
+            // Top chamfered lip & inner bore
+            const t = (v - 0.88) / 0.12;
+            r = 0.68 - t * 0.33;
+            y = 0.59 - t * 0.15;
+          }
+        } else {
+          // Impeller / Turbine Housing
+          if (v < 0.2) {
+            const t = v / 0.2;
+            r = 0.3 + t * 0.85;
+            y = -0.45;
+          } else if (v < 0.78) {
+            const t = (v - 0.2) / 0.58;
+            const spiral = 0.12 * Math.sin(theta * 8 + t * 4.5);
+            const dome = Math.sin(t * Math.PI * 0.75);
+            r = 0.65 + 0.5 * dome + spiral;
+            y = -0.45 + t * 0.98;
+          } else {
+            const t = (v - 0.78) / 0.22;
+            r = 0.75 * (1 - t * 0.55);
+            y = 0.53 + t * 0.12;
+          }
+        }
+
+        // Deterministic micro-sensor scan noise (simulates raw depth camera jitter)
+        const noise =
+          0.011 * Math.sin(theta * 19 + v * 31) * Math.cos(theta * 11 - v * 23) +
+          0.006 * Math.sin(theta * 37 + v * 41);
+
+        const cleanX = Math.cos(theta) * r;
+        const cleanY = y;
+        const cleanZ = Math.sin(theta) * r;
+
+        const noisyX = Math.cos(theta) * (r + noise);
+        const noisyY = y + noise * 0.5;
+        const noisyZ = Math.sin(theta) * (r + noise);
+
+        return {
+          noisy: new THREE.Vector3(noisyX, noisyY, noisyZ),
+          clean: new THREE.Vector3(cleanX, cleanY, cleanZ)
+        };
+      };
+
+      // Generate indexed grid
+      const gridNoisy = [];
+      const gridClean = [];
+      for (let iy = 0; iy <= heightSegs; iy++) {
+        const v = iy / heightSegs;
+        const rowN = [];
+        const rowC = [];
+        for (let ix = 0; ix <= radialSegs; ix++) {
+          const u = ix / radialSegs;
+          const pt = evalSurface(u, v);
+          rowN.push(pt.noisy);
+          rowC.push(pt.clean);
+        }
+        gridNoisy.push(rowN);
+        gridClean.push(rowC);
+      }
+
+      // Build triangle soup (non-indexed for crisp per-face/vertex manipulation & export)
+      for (let iy = 0; iy < heightSegs; iy++) {
+        for (let ix = 0; ix < radialSegs; ix++) {
+          const n00 = gridNoisy[iy][ix];
+          const n10 = gridNoisy[iy][ix + 1];
+          const n01 = gridNoisy[iy + 1][ix];
+          const n11 = gridNoisy[iy + 1][ix + 1];
+
+          const c00 = gridClean[iy][ix];
+          const c10 = gridClean[iy][ix + 1];
+          const c01 = gridClean[iy + 1][ix];
+          const c11 = gridClean[iy + 1][ix + 1];
+
+          const u0 = ix / radialSegs;
+          const u1 = (ix + 1) / radialSegs;
+          const v0 = iy / heightSegs;
+          const v1 = (iy + 1) / heightSegs;
+
+          // Triangle 1
+          positions.push(n00.x, n00.y, n00.z, n01.x, n01.y, n01.z, n10.x, n10.y, n10.z);
+          basePositions.push(n00.x, n00.y, n00.z, n01.x, n01.y, n01.z, n10.x, n10.y, n10.z);
+          smoothedPositions.push(c00.x, c00.y, c00.z, c01.x, c01.y, c01.z, c10.x, c10.y, c10.z);
+          uvs.push(u0, v0, u0, v1, u1, v0);
+
+          // Triangle 2
+          positions.push(n10.x, n10.y, n10.z, n01.x, n01.y, n01.z, n11.x, n11.y, n11.z);
+          basePositions.push(n10.x, n10.y, n10.z, n01.x, n01.y, n01.z, n11.x, n11.y, n11.z);
+          smoothedPositions.push(c10.x, c10.y, c10.z, c01.x, c01.y, c01.z, c11.x, c11.y, c11.z);
+          uvs.push(u1, v0, u0, v1, u1, v1);
+        }
+      }
+
+      const geometry = new THREE.BufferGeometry();
+      const posAttr = new THREE.BufferAttribute(new Float32Array(positions), 3);
+      geometry.setAttribute('position', posAttr);
+      geometry.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
+
+      // Store reference arrays for non-destructive smoothing, cropping, and decimation
+      geometry.userData.rawPositions = new Float32Array(basePositions);
+      geometry.userData.cleanPositions = new Float32Array(smoothedPositions);
+
+      // Initialize vertex colors (used for Scan Coverage Heatmap in Stage 1 & Splat tints)
+      const colors = new Float32Array(positions.length);
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      geometry.computeVertexNormals();
+      return geometry;
+    }
+
+    /**
+     * Soft Radial Gaussian Splat Sprite Texture Generator
+     */
+    function createGaussianSplatTexture() {
+      const size = 64;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      const half = size / 2;
+
+      const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+      grad.addColorStop(0.0, 'rgba(255, 255, 255, 1.0)');
+      grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.72)');
+      grad.addColorStop(0.7, 'rgba(255, 255, 255, 0.18)');
+      grad.addColorStop(1.0, 'rgba(255, 255, 255, 0.0)');
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, size, size);
+
+      const texture = new THREE.CanvasTexture(canvas);
+      return texture;
+    }
+
+    /**
+     * Client-Side CAD / 3D Mesh Exporters (Binary STL, ASCII STL, OBJ, PLY)
+     */
+    const MeshExporter = {
+      getTransformedTriangles(mesh, targetWidth, upAxis) {
+        const geom = mesh.geometry;
+        const pos = geom.attributes.position;
+        const drawCount = geom.drawRange.count !== Infinity ? geom.drawRange.count : pos.count;
+
+        // Compute current unscaled bounding box
+        geom.computeBoundingBox();
+        const bbox = geom.boundingBox;
+        const currentWidth = Math.max(0.0001, bbox.max.x - bbox.min.x);
+        const scaleFactor = targetWidth / currentWidth;
+        const centerX = (bbox.min.x + bbox.max.x) * 0.5;
+        const minY = bbox.min.y;
+        const centerZ = (bbox.min.z + bbox.max.z) * 0.5;
+
+        const transformPoint = (x, y, z) => {
+          // Center X/Z and place bottom at 0, then scale to real-world units
+          const sx = (x - centerX) * scaleFactor;
+          const sy = (y - minY) * scaleFactor;
+          const sz = (z - centerZ) * scaleFactor;
+
+          if (upAxis === 'Z') {
+            // Convert Three.js Y-up to CAD Z-up
+            return [sx, -sz, sy];
+          }
+          return [sx, sy, sz];
+        };
+
+        const triangles = [];
+        for (let i = 0; i < drawCount; i += 3) {
+          const v0 = transformPoint(pos.getX(i), pos.getY(i), pos.getZ(i));
+          const v1 = transformPoint(pos.getX(i + 1), pos.getY(i + 1), pos.getZ(i + 1));
+          const v2 = transformPoint(pos.getX(i + 2), pos.getY(i + 2), pos.getZ(i + 2));
+
+          // Compute face normal
+          const ux = v1[0] - v0[0], uy = v1[1] - v0[1], uz = v1[2] - v0[2];
+          const vx = v2[0] - v0[0], vy = v2[1] - v0[1], vz = v2[2] - v0[2];
+          let nx = uy * vz - uz * vy;
+          let ny = uz * vx - ux * vz;
+          let nz = ux * vy - uy * vx;
+          const len = Math.hypot(nx, ny, nz) || 1;
+          nx /= len; ny /= len; nz /= len;
+
+          triangles.push({ normal: [nx, ny, nz], v0, v1, v2 });
+        }
+        return triangles;
+      },
+
+      exportBinarySTL(mesh, targetWidth, upAxis, unit) {
+        const tris = this.getTransformedTriangles(mesh, targetWidth, upAxis);
+        const bufferLen = 84 + tris.length * 50;
+        const buffer = new ArrayBuffer(bufferLen);
+        const view = new DataView(buffer);
+
+        // 80-byte header
+        const header = `VolumetricStudio_BinarySTL_Units:${unit}_Up:${upAxis}`;
+        for (let i = 0; i < Math.min(80, header.length); i++) {
+          view.setUint8(i, header.charCodeAt(i));
+        }
+
+        view.setUint32(80, tris.length, true);
+        let offset = 84;
+        for (const t of tris) {
+          view.setFloat32(offset, t.normal[0], true); offset += 4;
+          view.setFloat32(offset, t.normal[1], true); offset += 4;
+          view.setFloat32(offset, t.normal[2], true); offset += 4;
+
+          for (const v of [t.v0, t.v1, t.v2]) {
+            view.setFloat32(offset, v[0], true); offset += 4;
+            view.setFloat32(offset, v[1], true); offset += 4;
+            view.setFloat32(offset, v[2], true); offset += 4;
+          }
+          view.setUint16(offset, 0, true); offset += 2;
+        }
+        this.triggerDownload(new Blob([buffer], { type: 'application/octet-stream' }), `scan_mesh_${unit}_${upAxis}up.stl`);
+      },
+
+      exportAsciiSTL(mesh, targetWidth, upAxis, unit) {
+        const tris = this.getTransformedTriangles(mesh, targetWidth, upAxis);
+        const lines = [`solid volumetric_scan_${unit}_${upAxis}up`];
+        for (const t of tris) {
+          lines.push(`  facet normal ${t.normal[0].toFixed(6)} ${t.normal[1].toFixed(6)} ${t.normal[2].toFixed(6)}`);
+          lines.push('    outer loop');
+          lines.push(`      vertex ${t.v0[0].toFixed(6)} ${t.v0[1].toFixed(6)} ${t.v0[2].toFixed(6)}`);
+          lines.push(`      vertex ${t.v1[0].toFixed(6)} ${t.v1[1].toFixed(6)} ${t.v1[2].toFixed(6)}`);
+          lines.push(`      vertex ${t.v2[0].toFixed(6)} ${t.v2[1].toFixed(6)} ${t.v2[2].toFixed(6)}`);
+          lines.push('    endloop');
+          lines.push('  endfacet');
+        }
+        lines.push(`endsolid volumetric_scan_${unit}_${upAxis}up`);
+        this.triggerDownload(new Blob([lines.join('\n')], { type: 'text/plain' }), `scan_mesh_ascii_${unit}_${upAxis}up.stl`);
+      },
+
+      exportOBJ(mesh, targetWidth, upAxis, unit) {
+        const tris = this.getTransformedTriangles(mesh, targetWidth, upAxis);
+        const lines = [
+          `# Volumetric Studio Wavefront OBJ Export`,
+          `# Units: ${unit} | Up-Axis: ${upAxis}`,
+          `o ScannedPart`
+        ];
+        let vIdx = 1;
+        for (const t of tris) {
+          lines.push(`v ${t.v0[0].toFixed(5)} ${t.v0[1].toFixed(5)} ${t.v0[2].toFixed(5)}`);
+          lines.push(`v ${t.v1[0].toFixed(5)} ${t.v1[1].toFixed(5)} ${t.v1[2].toFixed(5)}`);
+          lines.push(`v ${t.v2[0].toFixed(5)} ${t.v2[1].toFixed(5)} ${t.v2[2].toFixed(5)}`);
+          lines.push(`vn ${t.normal[0].toFixed(5)} ${t.normal[1].toFixed(5)} ${t.normal[2].toFixed(5)}`);
+          lines.push(`f ${vIdx}//${Math.ceil(vIdx / 3)} ${vIdx + 1}//${Math.ceil(vIdx / 3)} ${vIdx + 2}//${Math.ceil(vIdx / 3)}`);
+          vIdx += 3;
+        }
+        this.triggerDownload(new Blob([lines.join('\n')], { type: 'text/plain' }), `scan_mesh_${unit}_${upAxis}up.obj`);
+      },
+
+      exportPLY(mesh, targetWidth, upAxis, unit) {
+        const tris = this.getTransformedTriangles(mesh, targetWidth, upAxis);
+        const vertCount = tris.length * 3;
+        const header = [
+          'ply',
+          'format ascii 1.0',
+          `comment Volumetric Studio Export (${unit}, ${upAxis}-up)`,
+          `element vertex ${vertCount}`,
+          'property float x',
+          'property float y',
+          'property float z',
+          'property float nx',
+          'property float ny',
+          'property float nz',
+          `element face ${tris.length}`,
+          'property list uchar int vertex_indices',
+          'end_header'
+        ];
+        const body = [];
+        for (const t of tris) {
+          for (const v of [t.v0, t.v1, t.v2]) {
+            body.push(`${v[0].toFixed(5)} ${v[1].toFixed(5)} ${v[2].toFixed(5)} ${t.normal[0].toFixed(4)} ${t.normal[1].toFixed(4)} ${t.normal[2].toFixed(4)}`);
+          }
+        }
+        for (let i = 0; i < tris.length; i++) {
+          const base = i * 3;
+          body.push(`3 ${base} ${base + 1} ${base + 2}`);
+        }
+        this.triggerDownload(new Blob([header.concat(body).join('\n')], { type: 'text/plain' }), `scan_mesh_${unit}_${upAxis}up.ply`);
+      },
+
+      triggerDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        showToast(`Exported ${filename}`, 'success');
+      }
+    };
+
+    /**
+     * Main Studio Controller
+     */
+    async function bootstrapStudio() {
+      const container = document.getElementById('viewport-container');
+      const renderer = await initRenderer(container);
+
+      // Scene & Studio Lighting
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color('#090a0f');
+      scene.fog = new THREE.FogExp2('#090a0f', 0.09);
+
+      const camera = new THREE.PerspectiveCamera(42, container.clientWidth / container.clientHeight, 0.05, 100);
+      camera.position.set(2.4, 1.85, 2.6);
+
+      const controls = new OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.06;
+      controls.minDistance = 1.1;
+      controls.maxDistance = 8.0;
+      controls.target.set(0, 0.05, 0);
+
+      // Studio Three-Point Lighting
+      const hemiLight = new THREE.HemisphereLight('#e2e8f0', '#1e293b', 0.85);
+      scene.add(hemiLight);
+
+      const keyLight = new THREE.DirectionalLight('#ffffff', 1.65);
+      keyLight.position.set(3.5, 5.0, 3.0);
+      scene.add(keyLight);
+
+      const rimLight = new THREE.DirectionalLight('#38bdf8', 0.85);
+      rimLight.position.set(-3.5, 2.5, -3.5);
+      scene.add(rimLight);
+
+      // Turntable Calibration Grid & Scanner Ring
+      const gridHelper = new THREE.GridHelper(4.2, 28, '#1e293b', '#131722');
+      gridHelper.position.y = -0.46;
+      scene.add(gridHelper);
+
+      // Laser Scan Plane Indicator (visible during Stage 1 Capture)
+      const scanBeamGeo = new THREE.RingGeometry(1.38, 1.42, 64);
+      scanBeamGeo.rotateX(-Math.PI / 2);
+      const scanBeamMat = new THREE.MeshBasicMaterial({
+        color: '#38bdf8',
+        transparent: true,
+        opacity: 0.45,
+        side: THREE.DoubleSide
+      });
+      const scanBeamRing = new THREE.Mesh(scanBeamGeo, scanBeamMat);
+      scanBeamRing.position.y = 0;
+      scene.add(scanBeamRing);
+
+      // Build Initial Scan Subject Geometry
+      let subjectGeometry = buildScanSubjectGeometry(AppState.subjectType);
+
+      // Materials for Inspection & Capture Stages
+      const captureHeatmapMaterial = new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        roughness: 0.45,
+        metalness: 0.25
+      });
+
+      const pbrShadedMaterial = new THREE.MeshStandardMaterial({
+        color: '#cbd5e1',
+        roughness: 0.34,
+        metalness: 0.68
+      });
+
+      const wireframeMaterial = new THREE.MeshBasicMaterial({
+        color: '#38bdf8',
+        wireframe: true
+      });
+
+      const normalMaterial = new THREE.MeshNormalMaterial();
+
+      const scanMesh = new THREE.Mesh(subjectGeometry, captureHeatmapMaterial);
+      scene.add(scanMesh);
+
+      // Point Cloud & 3D Gaussian Splat Overlay
+      const splatTexture = createGaussianSplatTexture();
+      const pointCloudMaterial = new THREE.PointsMaterial({
+        size: 0.022,
+        color: '#38bdf8',
+        transparent: true,
+        opacity: 0.85
+      });
+
+      const gaussianSplatMaterial = new THREE.PointsMaterial({
+        size: 0.085,
+        map: splatTexture,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.78,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending
+      });
+
+      const pointSplatObject = new THREE.Points(subjectGeometry, pointCloudMaterial);
+      pointSplatObject.visible = false;
+      scene.add(pointSplatObject);
+
+      // Bounding Box Helper for Stage 3 Metrology
+      const bboxHelper = new THREE.BoxHelper(scanMesh, '#38bdf8');
+      bboxHelper.visible = false;
+      scene.add(bboxHelper);
+
+      // Initialize 36-Sector SVG Coverage Ring
+      const sectorsGroup = document.getElementById('coverage-sectors');
+      const sectorElements = [];
+      const radius = 26;
+      const circumference = 2 * Math.PI * radius;
+      const dashLen = circumference / 36 - 1.4;
+
+      for (let i = 0; i < 36; i++) {
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', '32');
+        circle.setAttribute('cy', '32');
+        circle.setAttribute('r', String(radius));
+        circle.setAttribute('fill', 'none');
+        circle.setAttribute('stroke', 'rgba(148, 163, 184, 0.22)');
+        circle.setAttribute('stroke-width', '5');
+        circle.setAttribute('stroke-dasharray', `${dashLen} ${circumference}`);
+        circle.setAttribute('transform', `rotate(${i * 10} 32 32)`);
+        sectorsGroup.appendChild(circle);
+        sectorElements.push(circle);
+      }
+
+      /**
+       * Update Vertex Coverage Heatmap & HUD Ring based on captured azimuth sectors
+       */
+      function updateCoverageVisuals() {
+        const pos = subjectGeometry.attributes.position;
+        const col = subjectGeometry.attributes.color;
+        let capturedCount = 0;
+
+        for (let i = 0; i < 36; i++) {
+          if (AppState.capturedSectors[i]) {
+            capturedCount++;
+            sectorElements[i].setAttribute('stroke', '#34d399');
+          } else {
+            sectorElements[i].setAttribute('stroke', 'rgba(148, 163, 184, 0.22)');
+          }
+        }
+
+        const pct = Math.round((capturedCount / 36) * 100);
+        document.getElementById('coverage-percent').textContent = `${pct}%`;
+        document.getElementById('ring-center-text').textContent = `${pct}%`;
+        document.getElementById('keyframe-count').textContent = `${AppState.keyframes} / 72`;
+
+        // Paint captured sectors emerald/sky and uncaptured sectors muted slate
+        for (let i = 0; i < pos.count; i++) {
+          const x = pos.getX(i);
+          const y = pos.getY(i);
+          const z = pos.getZ(i);
+          let angle = Math.atan2(z, x);
+          if (angle < 0) angle += Math.PI * 2;
+          const sectorIdx = Math.floor((angle / (Math.PI * 2)) * 36) % 36;
+
+          if (AppState.stage === 1) {
+            if (AppState.capturedSectors[sectorIdx]) {
+              // Captured surface: crisp cyan-emerald scan tint
+              col.setXYZ(i, 0.22, 0.82, 0.68);
+            } else {
+              // Unscanned surface: dark slate wireframe-like silhouette
+              col.setXYZ(i, 0.14, 0.17, 0.24);
+            }
+          } else {
+            // Reconstructed / Splat metallic studio shading color
+            const shade = 0.55 + 0.35 * ((y + 0.5) / 1.1);
+            col.setXYZ(i, shade * 0.82, shade * 0.9, shade * 1.0);
+          }
+        }
+        col.needsUpdate = true;
+      }
+
+      /**
+       * Apply Non-Destructive Geometry Cleanup: Smoothing, Bounding-Box Crop & Decimation
+       */
+      function applyGeometryProcessing() {
+        const pos = subjectGeometry.attributes.position;
+        const raw = subjectGeometry.userData.rawPositions;
+        const clean = subjectGeometry.userData.cleanPositions;
+        const smoothFactor = AppState.smoothingPercent / 100;
+
+        // 1. Interpolate between raw noisy scan and Taubin-smoothed coordinates
+        // 2. Apply bottom bounding-box floor crop threshold
+        const minY = -0.45;
+        const maxY = 0.62;
+        const cropThresholdY = minY + (AppState.cropPercent / 100) * (maxY - minY);
+
+        for (let i = 0; i < raw.length; i += 3) {
+          const x = raw[i] + (clean[i] - raw[i]) * smoothFactor;
+          let y = raw[i + 1] + (clean[i + 1] - raw[i + 1]) * smoothFactor;
+          const z = raw[i + 2] + (clean[i + 2] - raw[i + 2]) * smoothFactor;
+
+          if (y < cropThresholdY) {
+            y = cropThresholdY;
+          }
+
+          pos.array[i] = x;
+          pos.array[i + 1] = y;
+          pos.array[i + 2] = z;
+        }
+        pos.needsUpdate = true;
+        subjectGeometry.computeVertexNormals();
+
+        // 3. Apply Polygon Decimation via drawRange (rounded to multiples of 3 for valid triangles)
+        const totalTris = Math.floor(pos.count / 3);
+        const targetTris = Math.max(120, Math.floor(totalTris * (AppState.decimationPercent / 100)));
+        const drawVerts = targetTris * 3;
+        subjectGeometry.setDrawRange(0, drawVerts);
+
+        // Update HUD Counters & Metrology Dimensions
+        document.getElementById('hud-verts').textContent = drawVerts.toLocaleString();
+        document.getElementById('hud-tris').textContent = targetTris.toLocaleString();
+        document.getElementById('decimate-tri-preview').textContent = `${targetTris.toLocaleString()} tris`;
+
+        updateMetrologyReadout();
+        bboxHelper.update();
+      }
+
+      /**
+       * Update Real-World Dimensions Overlay (mm / cm / m)
+       */
+      function updateMetrologyReadout() {
+        subjectGeometry.computeBoundingBox();
+        const box = subjectGeometry.boundingBox;
+        const rawW = Math.max(0.001, box.max.x - box.min.x);
+        const rawH = Math.max(0.001, box.max.y - box.min.y);
+        const rawD = Math.max(0.001, box.max.z - box.min.z);
+
+        const targetW = parseFloat(document.getElementById('input-scale-width').value) || 120.0;
+        AppState.referenceWidth = targetW;
+
+        const scale = targetW / rawW;
+        const dimX = (rawW * scale).toFixed(1);
+        const dimY = (rawH * scale).toFixed(1);
+        const dimZ = (rawD * scale).toFixed(1);
+
+        document.getElementById('dim-x').textContent = dimX;
+        document.getElementById('dim-y').textContent = dimY;
+        document.getElementById('dim-z').textContent = dimZ;
+      }
+
+      /**
+       * Switch Active Workflow Stage (1: Capture, 2: Reconstruct, 3: Inspect & Export)
+       */
+      function setWorkflowStage(stageNum) {
+        AppState.stage = stageNum;
+
+        // Update Top Stepper Tabs
+        document.querySelectorAll('.stage-tab').forEach((btn) => {
+          const s = Number(btn.dataset.stage);
+          if (s === stageNum) {
+            btn.className = 'stage-tab px-3 sm:px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 bg-sky-500/20 text-sky-300 border border-sky-400/30';
+          } else {
+            btn.className = 'stage-tab px-3 sm:px-4 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2 text-slate-400 hover:text-slate-200 border border-transparent';
+          }
+        });
+
+        // Toggle HUD Panels
+        document.querySelectorAll('.stage-panel').forEach((panel) => panel.classList.add('hidden'));
+        document.getElementById(`panel-stage-${stageNum}`).classList.remove('hidden');
+
+        // Configure 3D Viewport Visuals for each stage
+        if (stageNum === 1) {
+          scanBeamRing.visible = true;
+          bboxHelper.visible = false;
+          scanMesh.visible = true;
+          scanMesh.material = captureHeatmapMaterial;
+          pointSplatObject.visible = false;
+          updateCoverageVisuals();
+        } else if (stageNum === 2) {
+          AppState.isAutoScanning = false;
+          updateAutoScanButton();
+          scanBeamRing.visible = false;
+          bboxHelper.visible = false;
+          updateCoverageVisuals();
+          applyReconRepresentation(AppState.reconView);
+          triggerSimulatedSolve();
+        } else if (stageNum === 3) {
+          AppState.isAutoScanning = false;
+          updateAutoScanButton();
+          scanBeamRing.visible = false;
+          updateCoverageVisuals();
+          applyInspectionShader(AppState.shadeMode);
+          bboxHelper.visible = AppState.showBBox;
+          bboxHelper.update();
+        }
+      }
+
+      function applyReconRepresentation(mode) {
+        AppState.reconView = mode;
+        document.querySelectorAll('.recon-view-btn').forEach((btn) => {
+          if (btn.dataset.reconView === mode) {
+            btn.className = 'recon-view-btn px-2 py-2 rounded-lg text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30';
+          } else {
+            btn.className = 'recon-view-btn px-2 py-2 rounded-lg text-[11px] font-medium bg-white/[0.04] text-slate-300 border border-white/10 hover:bg-white/[0.08]';
+          }
+        });
+
+        if (mode === 'points') {
+          scanMesh.visible = false;
+          pointSplatObject.visible = true;
+          pointSplatObject.material = pointCloudMaterial;
+        } else if (mode === 'splat') {
+          scanMesh.visible = false;
+          pointSplatObject.visible = true;
+          pointSplatObject.material = gaussianSplatMaterial;
+        } else {
+          pointSplatObject.visible = false;
+          scanMesh.visible = true;
+          scanMesh.material = pbrShadedMaterial;
+        }
+      }
+
+      function applyInspectionShader(mode) {
+        AppState.shadeMode = mode;
+        document.querySelectorAll('.shade-mode-btn').forEach((btn) => {
+          if (btn.dataset.shadeMode === mode) {
+            btn.className = 'shade-mode-btn py-1.5 px-2.5 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30';
+          } else {
+            btn.className = 'shade-mode-btn py-1.5 px-2.5 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10';
+          }
+        });
+
+        if (mode === 'splat') {
+          scanMesh.visible = false;
+          pointSplatObject.visible = true;
+          pointSplatObject.material = gaussianSplatMaterial;
+        } else {
+          pointSplatObject.visible = false;
+          scanMesh.visible = true;
+          if (mode === 'wireframe') scanMesh.material = wireframeMaterial;
+          else if (mode === 'normals') scanMesh.material = normalMaterial;
+          else scanMesh.material = pbrShadedMaterial;
+        }
+      }
+
+      function triggerSimulatedSolve() {
+        const badge = document.getElementById('recon-status-badge');
+        badge.textContent = 'SOLVING...';
+        badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono-tech bg-amber-500/20 text-amber-300';
+
+        const steps = [
+          { bar: 'bar-step-1', pct: 'step-1-pct', delay: 120 },
+          { bar: 'bar-step-2', pct: 'step-2-pct', delay: 320 },
+          { bar: 'bar-step-3', pct: 'step-3-pct', delay: 540 }
+        ];
+
+        steps.forEach((s) => {
+          document.getElementById(s.bar).style.width = '15%';
+          document.getElementById(s.pct).textContent = '15%';
+          document.getElementById(s.pct).className = 'font-mono-tech text-sky-400';
+
+          setTimeout(() => {
+            document.getElementById(s.bar).style.width = '100%';
+            document.getElementById(s.pct).textContent = '100%';
+            document.getElementById(s.pct).className = 'font-mono-tech text-emerald-400';
+          }, s.delay);
+        });
+
+        setTimeout(() => {
+          badge.textContent = 'SOLVED';
+          badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono-tech bg-emerald-500/20 text-emerald-300';
+        }, 620);
+      }
+
+      function updateAutoScanButton() {
+        const label = document.getElementById('autoscan-label');
+        const btn = document.getElementById('btn-toggle-autoscan');
+        if (AppState.isAutoScanning) {
+          label.textContent = 'Pause Scan';
+          btn.className = 'px-4 py-2.5 rounded-xl text-xs font-semibold bg-amber-400 hover:bg-amber-300 text-slate-950 transition-colors flex items-center gap-2 shadow-lg shadow-amber-500/20';
+        } else {
+          label.textContent = 'Start Auto-Scan';
+          btn.className = 'px-4 py-2.5 rounded-xl text-xs font-semibold bg-sky-500 hover:bg-sky-400 text-slate-950 transition-colors flex items-center gap-2 shadow-lg shadow-sky-500/20';
+        }
+      }
+
+      /**
+       * Live Webcam Sensor Integration
+       */
+      async function enableLiveCamera() {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            showToast('Camera API unavailable in this browser context.', 'warn');
+            return;
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+          });
+          AppState.webcamStream = stream;
+          const videoEl = document.getElementById('webcam-video');
+          videoEl.srcObject = stream;
+          document.getElementById('camera-pip').classList.remove('hidden');
+
+          document.getElementById('btn-source-cam').className = 'px-2.5 py-2 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30 transition-colors';
+          document.getElementById('btn-source-sim').className = 'px-2.5 py-2 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10 transition-colors';
+          showToast('Live optical sensor connected.', 'success');
+        } catch (err) {
+          showToast('Camera access denied or unavailable; continuing with 3D simulator.', 'warn');
+        }
+      }
+
+      function stopLiveCamera() {
+        if (AppState.webcamStream) {
+          AppState.webcamStream.getTracks().forEach((t) => t.stop());
+          AppState.webcamStream = null;
+        }
+        document.getElementById('camera-pip').classList.add('hidden');
+        document.getElementById('btn-source-sim').className = 'px-2.5 py-2 rounded-lg text-xs font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30 transition-colors';
+        document.getElementById('btn-source-cam').className = 'px-2.5 py-2 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10 transition-colors';
+      }
+
+      /**
+       * Bind All UI Event Listeners
+       */
+      document.querySelectorAll('.stage-tab').forEach((btn) => {
+        btn.addEventListener('click', () => setWorkflowStage(Number(btn.dataset.stage)));
+      });
+
+      document.getElementById('btn-to-reconstruct').addEventListener('click', () => {
+        // Fill remaining sectors if user jumps straight to reconstruction
+        if (AppState.capturedSectors.filter(Boolean).length < 6) {
+          AppState.capturedSectors.fill(true);
+          AppState.keyframes = 72;
+          updateCoverageVisuals();
+        }
+        setWorkflowStage(2);
+      });
+
+      document.getElementById('btn-back-capture').addEventListener('click', () => setWorkflowStage(1));
+      document.getElementById('btn-to-inspect').addEventListener('click', () => setWorkflowStage(3));
+      document.getElementById('btn-rerun-recon').addEventListener('click', () => triggerSimulatedSolve());
+
+      // Stage 1 Controls
+      document.getElementById('btn-toggle-autoscan').addEventListener('click', () => {
+        AppState.isAutoScanning = !AppState.isAutoScanning;
+        updateAutoScanButton();
+      });
+
+      document.getElementById('btn-reset-scan').addEventListener('click', () => {
+        AppState.isAutoScanning = false;
+        AppState.capturedSectors.fill(false);
+        AppState.keyframes = 0;
+        updateAutoScanButton();
+        updateCoverageVisuals();
+        showToast('Scan telemetry cleared.');
+      });
+
+      document.getElementById('btn-source-cam').addEventListener('click', enableLiveCamera);
+      document.getElementById('btn-source-sim').addEventListener('click', stopLiveCamera);
+      document.getElementById('btn-stop-camera').addEventListener('click', stopLiveCamera);
+
+      document.getElementById('select-subject').addEventListener('change', (e) => {
+        AppState.subjectType = e.target.value;
+        subjectGeometry.dispose();
+        subjectGeometry = buildScanSubjectGeometry(AppState.subjectType);
+        scanMesh.geometry = subjectGeometry;
+        pointSplatObject.geometry = subjectGeometry;
+        AppState.capturedSectors.fill(false);
+        AppState.keyframes = 0;
+        updateCoverageVisuals();
+        applyGeometryProcessing();
+      });
+
+      // Stage 2 Controls
+      document.querySelectorAll('.recon-view-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applyReconRepresentation(btn.dataset.reconView));
+      });
+
+      document.getElementById('slider-crop').addEventListener('input', (e) => {
+        AppState.cropPercent = Number(e.target.value);
+        document.getElementById('crop-val-label').textContent = `${AppState.cropPercent}%`;
+        applyGeometryProcessing();
+      });
+
+      document.getElementById('slider-decimate').addEventListener('input', (e) => {
+        AppState.decimationPercent = Number(e.target.value);
+        document.getElementById('decimate-val-label').textContent = `${AppState.decimationPercent}%`;
+        applyGeometryProcessing();
+      });
+
+      document.getElementById('slider-smooth').addEventListener('input', (e) => {
+        AppState.smoothingPercent = Number(e.target.value);
+        document.getElementById('smooth-val-label').textContent = `${AppState.smoothingPercent}%`;
+        applyGeometryProcessing();
+      });
+
+      document.getElementById('btn-auto-clean').addEventListener('click', () => {
+        AppState.cropPercent = 6;
+        AppState.smoothingPercent = 70;
+        document.getElementById('slider-crop').value = '6';
+        document.getElementById('crop-val-label').textContent = '6%';
+        document.getElementById('slider-smooth').value = '70';
+        document.getElementById('smooth-val-label').textContent = '70%';
+        applyGeometryProcessing();
+        showToast('Outliers trimmed & Taubin noise filter applied.', 'success');
+      });
+
+      // Stage 3 Controls
+      document.querySelectorAll('.cam-preset-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.cam-preset-btn').forEach((b) => {
+            b.className = 'cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10';
+          });
+          btn.className = 'cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-sky-500/20 text-sky-300 border border-sky-400/30';
+
+          const preset = btn.dataset.camPreset;
+          controls.target.set(0, 0.05, 0);
+          if (preset === 'iso') camera.position.set(2.4, 1.85, 2.6);
+          else if (preset === 'front') camera.position.set(0, 0.15, 3.3);
+          else if (preset === 'top') camera.position.set(0, 3.4, 0.01);
+          else if (preset === 'side') camera.position.set(3.3, 0.15, 0);
+          controls.update();
+        });
+      });
+
+      document.querySelectorAll('.shade-mode-btn').forEach((btn) => {
+        btn.addEventListener('click', () => applyInspectionShader(btn.dataset.shadeMode));
+      });
+
+      document.getElementById('toggle-bbox').addEventListener('change', (e) => {
+        AppState.showBBox = e.target.checked;
+        bboxHelper.visible = AppState.showBBox && AppState.stage === 3;
+      });
+
+      document.querySelectorAll('.unit-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const prevUnit = AppState.unit;
+          const nextUnit = btn.dataset.unit;
+          if (prevUnit === nextUnit) return;
+
+          // Convert current reference width cleanly between mm, cm, m
+          const toMeters = { mm: 0.001, cm: 0.01, m: 1.0 };
+          const valInMeters = AppState.referenceWidth * toMeters[prevUnit];
+          const converted = valInMeters / toMeters[nextUnit];
+
+          AppState.unit = nextUnit;
+          document.getElementById('unit-suffix-label').textContent = nextUnit;
+          document.getElementById('input-scale-width').value = Number(converted.toFixed(3));
+
+          document.querySelectorAll('.unit-btn').forEach((b) => {
+            b.className = b.dataset.unit === nextUnit
+              ? 'unit-btn px-2 py-0.5 rounded-md text-[11px] font-mono-tech bg-sky-500/25 text-sky-300'
+              : 'unit-btn px-2 py-0.5 rounded-md text-[11px] font-mono-tech text-slate-400 hover:text-slate-200';
+          });
+          updateMetrologyReadout();
+        });
+      });
+
+      document.getElementById('input-scale-width').addEventListener('input', updateMetrologyReadout);
+
+      document.querySelectorAll('.up-axis-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          AppState.upAxis = btn.dataset.upAxis;
+          document.querySelectorAll('.up-axis-btn').forEach((b) => {
+            b.className = b.dataset.upAxis === AppState.upAxis
+              ? 'up-axis-btn px-2.5 py-1 rounded-md text-[11px] font-mono-tech bg-sky-500/25 text-sky-300'
+              : 'up-axis-btn px-2.5 py-1 rounded-md text-[11px] font-mono-tech text-slate-400 hover:text-slate-200';
+          });
+          showToast(`Export coordinate convention set to ${AppState.upAxis}-Up.`);
+        });
+      });
+
+      // Export Button Bindings
+      document.getElementById('btn-export-stl-bin').addEventListener('click', () => {
+        MeshExporter.exportBinarySTL(scanMesh, AppState.referenceWidth, AppState.upAxis, AppState.unit);
+      });
+      document.getElementById('btn-export-stl-ascii').addEventListener('click', () => {
+        MeshExporter.exportAsciiSTL(scanMesh, AppState.referenceWidth, AppState.upAxis, AppState.unit);
+      });
+      document.getElementById('btn-export-obj').addEventListener('click', () => {
+        MeshExporter.exportOBJ(scanMesh, AppState.referenceWidth, AppState.upAxis, AppState.unit);
+      });
+      document.getElementById('btn-export-ply').addEventListener('click', () => {
+        MeshExporter.exportPLY(scanMesh, AppState.referenceWidth, AppState.upAxis, AppState.unit);
+      });
+
+      // Responsive Canvas Resize Handler
+      window.addEventListener('resize', () => {
+        const w = container.clientWidth;
+        const h = container.clientHeight;
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        renderer.setSize(w, h);
+      });
+
+      // Initial Geometry & Coverage Setup
+      applyGeometryProcessing();
+      updateCoverageVisuals();
+
+      // Main Render & Sensor Simulation Loop
+      let frameCounter = 0;
+      let lastFpsTime = performance.now();
+
+      function animate(now) {
+        requestAnimationFrame(animate);
+
+        // FPS Counter
+        frameCounter++;
+        if (now - lastFpsTime >= 600) {
+          const fps = Math.round((frameCounter * 1000) / (now - lastFpsTime));
+          document.getElementById('hud-fps').textContent = String(fps);
+          frameCounter = 0;
+          lastFpsTime = now;
+        }
+
+        // Stage 1: Capture Tracking, Laser Sweep & Motion Speed Evaluation
+        if (AppState.stage === 1) {
+          scanBeamRing.position.y = Math.sin(now * 0.0025) * 0.48;
+
+          if (AppState.isAutoScanning) {
+            // Smooth orbital turntable sweep
+            const angleStep = 0.018;
+            const x = camera.position.x;
+            const z = camera.position.z;
+            camera.position.x = x * Math.cos(angleStep) - z * Math.sin(angleStep);
+            camera.position.z = x * Math.sin(angleStep) + z * Math.cos(angleStep);
+          }
+
+          // Compute camera azimuth relative to object to mark scanned sectors
+          let azimuth = Math.atan2(camera.position.z, camera.position.x);
+          if (azimuth < 0) azimuth += Math.PI * 2;
+          const sectorIdx = Math.floor((azimuth / (Math.PI * 2)) * 36) % 36;
+
+          // Angular velocity check for motion blur warning
+          const dt = Math.max(0.001, (now - AppState.lastCamTime) / 1000);
+          if (AppState.lastCamAzimuth !== null) {
+            let dTheta = Math.abs(azimuth - AppState.lastCamAzimuth);
+            if (dTheta > Math.PI) dTheta = Math.PI * 2 - dTheta;
+            const angularSpeed = dTheta / dt;
+
+            const motionBadge = document.getElementById('motion-badge');
+            if (angularSpeed > 3.8) {
+              motionBadge.textContent = 'TOO FAST / BLUR';
+              motionBadge.className = 'px-2 py-0.5 rounded-md text-[10px] font-mono-tech bg-rose-500/20 text-rose-300 border border-rose-500/40';
+            } else {
+              motionBadge.textContent = 'OPTIMAL SPEED';
+              motionBadge.className = 'px-2 py-0.5 rounded-md text-[10px] font-mono-tech bg-emerald-500/15 text-emerald-400 border border-emerald-500/30';
+
+              // Lock sector if moving within safe tracking speed
+              if (!AppState.capturedSectors[sectorIdx]) {
+                AppState.capturedSectors[sectorIdx] = true;
+                AppState.keyframes = Math.min(72, AppState.capturedSectors.filter(Boolean).length * 2);
+                updateCoverageVisuals();
+
+                if (AppState.capturedSectors.every(Boolean) && AppState.isAutoScanning) {
+                  AppState.isAutoScanning = false;
+                  updateAutoScanButton();
+                  showToast('360° capture complete. Ready for reconstruction.', 'success');
+                }
+              }
+            }
+          }
+          AppState.lastCamAzimuth = azimuth;
+          AppState.lastCamTime = now;
+        }
+
+        controls.update();
+        renderer.render(scene, camera);
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    window.addEventListener('DOMContentLoaded', bootstrapStudio);
+  </script>
+</body>
+</html>
