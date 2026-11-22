@@ -1,414 +1,701 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PolyPup Hull Studio — Visual-Hull Low-Poly Dog Creator</title>
-
-  <!-- Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-
-  <!-- Clean Technical Typography -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-
-  <!-- Three.js ES Module Import Map -->
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-      }
-    }
-  </script>
-
+  <title>Low-Poly Dog Visual-Hull Studio</title>
   <style>
     :root {
-      --bg-studio: #0f1115;
-      --panel-bg: rgba(18, 21, 28, 0.86);
-      --panel-border: rgba(255, 255, 255, 0.08);
-      --accent: #f59e0b;
+      --bg-app: #0f1115;
+      --bg-panel: #171a21;
+      --bg-card: #1f242e;
+      --bg-hover: #282e3b;
+      --border: #2c3342;
+      --text-main: #e6eaf2;
+      --text-muted: #8b95a8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --ok: #10b981;
+      --danger: #ef4444;
+      --radius: 8px;
+      --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
 
-    * {
-      box-sizing: border-box;
-      user-select: none;
-    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      margin: 0;
-      padding: 0;
-      background-color: var(--bg-studio);
-      color: #f1f5f9;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-      overflow: hidden;
-      width: 100vw;
+      font-family: var(--font);
+      background: var(--bg-app);
+      color: var(--text-main);
       height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      font-size: 13px;
     }
 
-    .font-mono-tech {
-      font-family: 'JetBrains Mono', monospace;
+    header {
+      height: 48px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      flex-shrink: 0;
     }
 
-    .glass-panel {
-      background: var(--panel-bg);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid var(--panel-border);
-      box-shadow: 0 12px 32px -8px rgba(0, 0, 0, 0.65);
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 14px;
     }
 
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 4px;
-      background: rgba(255, 255, 255, 0.14);
-      border-radius: 999px;
-      outline: none;
+    .brand-badge {
+      background: rgba(59, 130, 246, 0.15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      padding: 2px 7px;
+      border-radius: 4px;
+      font-size: 11px;
     }
 
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 13px;
-      height: 13px;
-      border-radius: 50%;
-      background: #f59e0b;
-      border: 2px solid #0f1115;
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    button {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 6px 11px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
-      transition: transform 0.12s ease, background-color 0.12s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
     }
 
-    input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.16);
-      background: #fbbf24;
+    button:hover { background: var(--bg-hover); border-color: #3d4659; }
+    button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    button.primary:hover { background: var(--accent-hover); }
+    button.active { background: rgba(59, 130, 246, 0.2); border-color: var(--accent); color: #93c5fd; }
+
+    .workspace {
+      flex: 1;
+      display: flex;
+      min-height: 0;
     }
 
-    ::-webkit-scrollbar {
-      width: 5px;
-      height: 5px;
+    .viewport-wrap {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at center, #181c24 0%, #0b0d11 100%);
+      overflow: hidden;
     }
-    ::-webkit-scrollbar-track {
-      background: rgba(255, 255, 255, 0.02);
+
+    #canvas3d {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
-    ::-webkit-scrollbar-thumb {
-      background: rgba(255, 255, 255, 0.16);
-      border-radius: 999px;
+
+    .hud-top-left {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      z-index: 5;
     }
+
+    #statusBanner {
+      position: absolute;
+      top: 52px;
+      left: 12px;
+      background: rgba(23, 26, 33, 0.9);
+      border: 1px solid var(--border);
+      color: #93c5fd;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      z-index: 5;
+      max-width: 420px;
+    }
+
+    #statusBanner.error {
+      border-color: var(--danger);
+      color: #fca5a5;
+    }
+
+    .hud-stats {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(23, 26, 33, 0.88);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 8px 12px;
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      z-index: 5;
+    }
+
+    .hud-stats strong { color: var(--text-main); font-weight: 600; }
+
+    aside.sidebar {
+      width: 340px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 14px;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .step-title {
+      font-weight: 600;
+      font-size: 12.5px;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .step-num {
+      padding: 1px 6px;
+      border-radius: 10px;
+      background: var(--bg-hover);
+      color: var(--text-main);
+      font-size: 10.5px;
+      font-weight: 700;
+    }
+
+    .step-meta { font-size: 11px; color: var(--text-muted); }
+
+    .control-row { display: flex; flex-direction: column; gap: 5px; }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .control-label span:last-child {
+      color: var(--text-main);
+      font-variant-numeric: tabular-nums;
+      font-weight: 500;
+    }
+
+    input[type="range"] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      background: var(--bg-app);
+      padding: 3px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .segmented button {
+      border: none;
+      background: transparent;
+      justify-content: center;
+      padding: 5px 4px;
+      font-size: 11.5px;
+    }
+
+    .segmented button.active {
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .export-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .export-grid button { justify-content: center; }
+
+    .mask-preview-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      background: var(--bg-app);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+
+    .mask-pane {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .mask-pane canvas {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 4px;
+      background: #08090c;
+      border: 1px solid var(--border);
+    }
+
+    .mask-pane span { font-size: 10.5px; color: var(--text-muted); }
+
+    .filmstrip {
+      height: 116px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 8px 14px;
+      gap: 10px;
+      overflow-x: auto;
+      flex-shrink: 0;
+    }
+
+    .thumb-card {
+      width: 92px;
+      height: 96px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 5px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .thumb-card:hover { border-color: #4b556b; }
+    .thumb-card.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .thumb-card.dropped { opacity: 0.45; border-style: dashed; }
+
+    .thumb-card canvas {
+      width: 100%;
+      height: 60px;
+      border-radius: 4px;
+      background: #0a0c10;
+    }
+
+    .thumb-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--text-muted);
+    }
+
+    .badge-status {
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+      font-size: 9.5px;
+    }
+
+    .badge-ok { background: rgba(16, 185, 129, 0.15); color: var(--ok); }
+    .badge-drop { background: rgba(239, 68, 68, 0.15); color: var(--danger); }
+
+    #fileInput { display: none; }
   </style>
 </head>
-<body class="relative w-screen h-screen overflow-hidden bg-[#0f1115] text-slate-100">
-
-  <!-- Full-Viewport Three.js Canvas -->
-  <div id="viewport-container" class="absolute inset-0 w-full h-full z-0"></div>
-
-  <!-- TOP BAR: Title, Built-in Breeds / Upload, Live Stats, Export Actions -->
-  <header class="fixed top-0 inset-x-0 z-20 pointer-events-none px-4 pt-3.5 flex flex-wrap items-center justify-between gap-2.5">
-    <!-- Brand -->
-    <div class="pointer-events-auto glass-panel rounded-xl px-3.5 py-2 flex items-center gap-3">
-      <div class="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-400/30 flex items-center justify-center text-amber-400">
-        <!-- Geometric Low-Poly Dog Emblem -->
-        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polygon points="4,4 9,9 4,14" />
-          <polygon points="20,4 15,9 20,14" />
-          <polygon points="9,9 15,9 12,19" />
-          <polygon points="4,14 9,9 12,19" />
-          <polygon points="20,14 15,9 12,19" />
-        </svg>
-      </div>
-      <div>
-        <div class="text-xs font-bold tracking-wide text-slate-100 leading-tight">POLYPUP HULL STUDIO</div>
-        <div class="text-[10px] font-mono-tech text-slate-400 mt-0.5">6-Stage Visual-Hull Reconstruction</div>
-      </div>
+<body>
+  <header>
+    <div class="brand">
+      <span>Low-Poly Dog Visual-Hull Studio</span>
+      <span class="brand-badge">6-Stage Silhouette Carve</span>
     </div>
-
-    <!-- Breed Dataset Switcher & Photo Upload -->
-    <div class="pointer-events-auto glass-panel rounded-xl p-1 flex flex-wrap items-center gap-1">
-      <button data-breed="shiba" class="breed-btn px-2.5 py-1.5 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-400/30 transition-colors">
-        Shiba Inu (12)
-      </button>
-      <button data-breed="dachshund" class="breed-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 border border-transparent transition-colors">
-        Dachshund (12)
-      </button>
-      <button data-breed="frenchie" class="breed-btn px-2.5 py-1.5 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 border border-transparent transition-colors">
-        French Bulldog (12)
-      </button>
-      <div class="h-4 w-px bg-white/10 mx-0.5"></div>
-      <label class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/10 cursor-pointer transition-colors flex items-center gap-1.5">
-        <svg class="w-3.5 h-3.5 text-amber-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-        </svg>
-        <span>Upload Photos</span>
-        <input id="input-upload-photos" type="file" multiple accept="image/*" class="hidden" />
-      </label>
-    </div>
-
-    <!-- Live Geometry Stats & 3D Exports -->
-    <div class="pointer-events-auto glass-panel rounded-xl px-3 py-1.5 flex items-center gap-3">
-      <div class="hidden xl:flex items-center gap-3 text-[11px] font-mono-tech pr-2.5 border-r border-white/10">
-        <div>
-          <span class="text-slate-500">CAMS</span>
-          <span id="stat-cameras" class="text-emerald-400 ml-1">11/12</span>
-        </div>
-        <div>
-          <span class="text-slate-500">VOXELS</span>
-          <span id="stat-voxels" class="text-slate-200 ml-1">0</span>
-        </div>
-        <div>
-          <span class="text-slate-500">TRIS</span>
-          <span id="stat-tris" class="text-amber-300 ml-1">0</span>
-        </div>
-        <div>
-          <span class="text-slate-500">VERTS</span>
-          <span id="stat-verts" class="text-slate-300 ml-1">0</span>
-        </div>
-      </div>
-
-      <div class="flex items-center gap-1.5">
-        <button id="btn-export-glb" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-amber-500 hover:bg-amber-400 text-slate-950 transition-colors">
-          Export .GLB
-        </button>
-        <button id="btn-export-obj" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/10 transition-colors">
-          .OBJ
-        </button>
-        <button id="btn-export-stl" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-white/[0.06] hover:bg-white/[0.12] text-slate-200 border border-white/10 transition-colors">
-          .STL
-        </button>
-      </div>
+    <div class="header-actions">
+      <button id="btnSampleBreed" type="button">Switch Sample Dog</button>
+      <button id="btnUpload" class="primary" type="button">+ Upload Dog Photos</button>
+      <input type="file" id="fileInput" accept="image/*" multiple />
     </div>
   </header>
 
-  <!-- LEFT SIDEBAR: 6-Stage Reconstruction Pipeline Controls -->
-  <aside class="pointer-events-none fixed top-20 left-4 bottom-44 z-10 w-72 sm:w-80 flex flex-col gap-3 overflow-y-auto pr-1">
-    <div class="pointer-events-auto glass-panel rounded-xl p-4 space-y-4">
-      <div class="flex items-center justify-between">
-        <span class="text-xs font-semibold uppercase tracking-wider text-slate-200">Reconstruction Pipeline</span>
-        <span id="pipeline-status" class="text-[10px] font-mono-tech text-emerald-400">READY</span>
+  <div class="workspace">
+    <div class="viewport-wrap">
+      <canvas id="canvas3d"></canvas>
+
+      <div class="hud-top-left">
+        <button id="btnWireframe" type="button">Wireframe</button>
+        <button id="btnCameraRing" class="active" type="button">Camera Ring</button>
+        <button id="btnResetView" type="button">Reset View</button>
       </div>
 
-      <!-- STEP 1: AI Cut-outs & Hole-Filling -->
-      <div class="space-y-2 pt-2.5 border-t border-white/10">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold text-amber-400 font-mono-tech">01. SILHOUETTE CUT-OUTS</span>
-          <span id="val-bg-thresh" class="text-[11px] font-mono-tech text-slate-200">32</span>
-        </div>
-        <div class="space-y-1">
-          <div class="flex justify-between text-[11px] text-slate-400">
-            <span>Foreground Mask Threshold</span>
-            <span class="text-[10px] font-mono-tech text-slate-500">Largest Blob + Hole Fill</span>
-          </div>
-          <input id="slider-bg-thresh" type="range" min="10" max="80" value="32" step="1" />
-        </div>
-      </div>
+      <div id="statusBanner">Loading 3D engine...</div>
 
-      <!-- STEP 2: Circular Camera Ring & Motion Filter -->
-      <div class="space-y-2 pt-2.5 border-t border-white/10">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold text-amber-400 font-mono-tech">02. CAMERA RING & MOTION</span>
-          <span id="val-motion-thresh" class="text-[11px] font-mono-tech text-slate-200">18% shift</span>
-        </div>
-        <div class="space-y-1">
-          <div class="flex justify-between text-[11px] text-slate-400">
-            <span>Motion Outlier Drop Cutoff</span>
-            <span id="lbl-dropped-count" class="text-[10px] font-mono-tech text-rose-400">1 dropped</span>
-          </div>
-          <input id="slider-motion-thresh" type="range" min="6" max="50" value="18" step="1" />
-        </div>
-        <button id="btn-reauto-motion" class="w-full py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.05] hover:bg-white/[0.1] text-slate-300 border border-white/10 transition-colors">
-          Re-Run Motion Outlier Detection
-        </button>
+      <div class="hud-stats">
+        <span>Active Photos: <strong id="statPhotos">0 / 0</strong></span>
+        <span>Voxel Grid: <strong id="statVoxels">32³</strong></span>
+        <span>Triangles: <strong id="statTris">0</strong></span>
       </div>
+    </div>
 
-      <!-- STEP 3: Voxel Carving Thickness -->
-      <div class="space-y-2 pt-2.5 border-t border-white/10">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold text-amber-400 font-mono-tech">03. VOXEL CARVING (48³)</span>
-          <span id="val-thickness-cams" class="text-[11px] font-mono-tech text-slate-200">10 / 11 cams</span>
+    <aside class="sidebar">
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title"><span class="step-num">1–2</span> Cut-Out &amp; Camera Ring</div>
+          <span class="step-meta" id="selectedCamLabel">Cam #1</span>
         </div>
-        <div class="space-y-1">
-          <div class="flex justify-between text-[11px] text-slate-400">
-            <span>Carving Thickness Consensus</span>
-            <span id="val-thickness-pct" class="font-mono-tech text-amber-300">90%</span>
+
+        <div class="mask-preview-box">
+          <div class="mask-pane">
+            <canvas id="previewSource" width="128" height="128"></canvas>
+            <span>Source Photo</span>
           </div>
-          <input id="slider-thickness" type="range" min="60" max="100" value="90" step="1" />
-          <div class="flex justify-between text-[10px] text-slate-500">
-            <span>Thicker (Keep Ears/Tail)</span>
-            <span>Strict Intersection</span>
+          <div class="mask-pane">
+            <canvas id="previewMask" width="128" height="128"></canvas>
+            <span>Tidied Silhouette</span>
           </div>
         </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>Cut-Out BG Threshold</span>
+            <span id="valBgThresh">36</span>
+          </div>
+          <input type="range" id="sliderBgThresh" min="10" max="110" value="36" />
+        </div>
+
+        <div class="toggle-row">
+          <span>Include selected photo in carve</span>
+          <button id="btnTogglePhoto" type="button">Active</button>
+        </div>
       </div>
 
-      <!-- STEP 4 & 5: Marching Cubes & Triangle Budget -->
-      <div class="space-y-2 pt-2.5 border-t border-white/10">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold text-amber-400 font-mono-tech">04–05. MARCHING CUBES & DECIMATE</span>
-          <span id="val-budget-display" class="text-[11px] font-mono-tech text-slate-200">1,500 tris</span>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title"><span class="step-num">3–4</span> Visual-Hull Carving</div>
+          <span class="step-meta">Iso-Surface</span>
         </div>
-        <div class="grid grid-cols-3 gap-1.5">
-          <button data-budget="600" class="budget-btn py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10 transition-colors">
-            Low (600)
-          </button>
-          <button data-budget="1500" class="budget-btn py-1.5 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-400/30 transition-colors">
-            Med (1.5k)
-          </button>
-          <button data-budget="4000" class="budget-btn py-1.5 rounded-lg text-xs font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10 transition-colors">
-            High (4k)
-          </button>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>Carving Thickness (Strictness)</span>
+            <span id="valThickness">85%</span>
+          </div>
+          <input type="range" id="sliderThickness" min="55" max="100" value="85" />
         </div>
-        <input id="slider-budget" type="range" min="350" max="5000" value="1500" step="50" />
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>Voxel Grid Resolution</span>
+            <span id="valGridRes">32³</span>
+          </div>
+          <input type="range" id="sliderGridRes" min="20" max="44" step="4" value="32" />
+        </div>
       </div>
 
-      <!-- STEP 6: Flat Per-Triangle Color Projection -->
-      <div class="space-y-2 pt-2.5 border-t border-white/10">
-        <div class="flex items-center justify-between">
-          <span class="text-[11px] font-semibold text-amber-400 font-mono-tech">06. FLAT FACE COLORING</span>
-          <span id="val-inset" class="text-[11px] font-mono-tech text-slate-200">12% inset</span>
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title"><span class="step-num">5</span> Triangle Budget</div>
+          <span class="step-meta" id="valBudgetMode">Medium</span>
         </div>
-        <div class="space-y-1">
-          <div class="flex justify-between text-[11px] text-slate-400">
+
+        <div class="segmented" id="budgetPresets">
+          <button type="button" data-tris="600">Low (~600)</button>
+          <button type="button" data-tris="1500" class="active">Med (~1.5k)</button>
+          <button type="button" data-tris="4000">High (~4k)</button>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
+            <span>Target Triangles</span>
+            <span id="valTargetTris">1500</span>
+          </div>
+          <input type="range" id="sliderTargetTris" min="300" max="5000" step="100" value="1500" />
+        </div>
+      </div>
+
+      <div class="step-card">
+        <div class="step-header">
+          <div class="step-title"><span class="step-num">6</span> Flat Triangle Color &amp; Export</div>
+        </div>
+
+        <div class="control-row">
+          <div class="control-label">
             <span>Edge Color Inset (Anti-Fringe)</span>
+            <span id="valColorInset">2 px</span>
           </div>
-          <input id="slider-inset" type="range" min="0" max="30" value="12" step="1" />
+          <input type="range" id="sliderColorInset" min="0" max="6" step="1" value="2" />
         </div>
-        <label class="flex items-center justify-between pt-1 cursor-pointer">
-          <span class="text-xs text-slate-300">Palette Quantize (Stylized)</span>
-          <input id="toggle-quantize" type="checkbox" class="w-4 h-4 accent-amber-400 rounded cursor-pointer" />
-        </label>
-      </div>
-    </div>
-  </aside>
 
-  <!-- RIGHT SIDEBAR: Viewport Controls, Camera Angles & Selected Frame Inspector -->
-  <aside class="pointer-events-none fixed top-20 right-4 z-10 w-64 hidden md:flex flex-col gap-3">
-    <!-- Camera Views & Shading -->
-    <div class="pointer-events-auto glass-panel rounded-xl p-3.5 space-y-3">
-      <div class="text-xs font-semibold uppercase tracking-wider text-slate-300">Viewport & Camera</div>
-
-      <!-- Quick Camera Presets -->
-      <div class="grid grid-cols-4 gap-1">
-        <button data-cam-preset="iso" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-400/30">
-          3/4 Iso
-        </button>
-        <button data-cam-preset="front" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">
-          Front
-        </button>
-        <button data-cam-preset="side" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">
-          Side
-        </button>
-        <button data-cam-preset="top" class="cam-preset-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">
-          Top
-        </button>
-      </div>
-
-      <!-- Display Mode -->
-      <div class="grid grid-cols-3 gap-1">
-        <button data-display="flat" class="display-btn py-1.5 rounded-lg text-[11px] font-medium bg-amber-500/20 text-amber-300 border border-amber-400/30">
-          Flat Color
-        </button>
-        <button data-display="wire" class="display-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">
-          Wireframe
-        </button>
-        <button data-display="voxels" class="display-btn py-1.5 rounded-lg text-[11px] font-medium bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 border border-white/10">
-          Voxels
-        </button>
-      </div>
-
-      <!-- Toggles -->
-      <div class="pt-2 border-t border-white/10 space-y-2 text-xs text-slate-300">
-        <label class="flex items-center justify-between cursor-pointer">
-          <span>3D Camera Ring Frustums</span>
-          <input id="toggle-ring" type="checkbox" checked class="w-4 h-4 accent-amber-400 rounded cursor-pointer" />
-        </label>
-        <label class="flex items-center justify-between cursor-pointer">
-          <span>Ground Grid & Turntable</span>
-          <input id="toggle-grid" type="checkbox" checked class="w-4 h-4 accent-amber-400 rounded cursor-pointer" />
-        </label>
-        <label class="flex items-center justify-between cursor-pointer">
-          <span>Auto-Rotate Turntable</span>
-          <input id="toggle-spin" type="checkbox" class="w-4 h-4 accent-amber-400 rounded cursor-pointer" />
-        </label>
-      </div>
-    </div>
-
-    <!-- Selected Camera Frame Detail Inspector -->
-    <div class="pointer-events-auto glass-panel rounded-xl p-3.5 space-y-2">
-      <div class="flex items-center justify-between">
-        <span id="inspector-cam-title" class="text-[11px] font-semibold uppercase tracking-wider text-slate-300">CAM 01 (0°)</span>
-        <span id="inspector-cam-status" class="px-2 py-0.5 rounded text-[10px] font-mono-tech bg-emerald-500/20 text-emerald-300">KEPT</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2">
-        <div class="space-y-1">
-          <div class="text-[10px] font-mono-tech text-slate-500">INPUT PHOTO</div>
-          <canvas id="inspect-photo-canvas" width="128" height="96" class="w-full aspect-[4/3] rounded-lg bg-slate-950 border border-white/10"></canvas>
+        <div class="toggle-row">
+          <span>Stylized Color Palette Snap</span>
+          <input type="checkbox" id="chkQuantize" />
         </div>
-        <div class="space-y-1">
-          <div class="text-[10px] font-mono-tech text-slate-500">SILHOUETTE</div>
-          <canvas id="inspect-mask-canvas" width="128" height="96" class="w-full aspect-[4/3] rounded-lg bg-slate-950 border border-white/10"></canvas>
+
+        <div class="export-grid">
+          <button id="exportGLB" class="primary" type="button">Export .GLB</button>
+          <button id="exportOBJ" type="button">Export .OBJ</button>
+          <button id="exportSTL" type="button">Export .STL</button>
         </div>
       </div>
-      <div class="flex items-center justify-between text-[10px] font-mono-tech text-slate-400 pt-0.5">
-        <span id="inspector-shift">Centroid Shift: 0.4%</span>
-        <button id="btn-toggle-selected-cam" class="text-amber-400 hover:text-amber-300 underline">Toggle Include</button>
-      </div>
-    </div>
-  </aside>
+    </aside>
+  </div>
 
-  <!-- BOTTOM FILMSTRIP: Multi-Angle Camera Ring & Silhouette Inspector -->
-  <section class="pointer-events-none fixed bottom-3 inset-x-4 z-20">
-    <div class="pointer-events-auto glass-panel rounded-2xl p-3 flex flex-col gap-2">
-      <div class="flex flex-wrap items-center justify-between gap-2 px-1">
-        <div class="flex items-center gap-3">
-          <span class="text-xs font-semibold text-slate-200">Camera Ring Filmstrip</span>
-          <span class="text-[11px] text-slate-400 hidden sm:inline">Select a frame to inspect silhouette or toggle inclusion in hull carving</span>
-        </div>
-        <div class="flex items-center gap-2">
-          <span class="text-[11px] text-slate-400">Preview Layer:</span>
-          <div class="inline-flex rounded-lg bg-white/[0.04] p-0.5 border border-white/10">
-            <button id="btn-strip-both" class="strip-mode-btn px-2 py-0.5 rounded-md text-[11px] font-medium bg-amber-500/25 text-amber-300">
-              Split Photo/Mask
-            </button>
-            <button id="btn-strip-photo" class="strip-mode-btn px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-400 hover:text-slate-200">
-              Photos
-            </button>
-            <button id="btn-strip-mask" class="strip-mode-btn px-2 py-0.5 rounded-md text-[11px] font-medium text-slate-400 hover:text-slate-200">
-              Silhouettes
-            </button>
-          </div>
-        </div>
-      </div>
+  <div class="filmstrip" id="filmstrip"></div>
 
-      <!-- Horizontal Scrollable Camera Frames -->
-      <div id="filmstrip-container" class="flex items-center gap-2.5 overflow-x-auto pb-1 pt-0.5 px-1"></div>
-    </div>
-  </section>
-
-  <!-- Notification Toast Container -->
-  <div id="toast-container" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-2 pointer-events-none"></div>
-
-  <!-- ======================================================================= -->
-  <!-- COMPLETE 6-STEP VISUAL-HULL DOG RECONSTRUCTION ENGINE & THREE.JS STUDIO -->
-  <!-- ======================================================================= -->
   <script type="module">
-    import * as THREE from 'three';
-    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    const banner = document.getElementById("statusBanner");
+    function setStatus(msg, isError = false) {
+      banner.textContent = msg;
+      banner.className = isError ? "error" : "";
+    }
 
-    /* =====================================================================
-     * 1. COMPLETE MARCHING CUBES LOOKUP TABLES (256-CASE EDGE & TRI TABLES)
-     * ===================================================================== */
-    const EDGE_TABLE = new Int32Array([
-      0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
-      0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
-      0x190, 0x99, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
-      0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
-      0x230, 0x339, 0x33, 0x13a, 0x636, 0x73f, 0x435, 0x53c,
-      0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30,
-      0x3a0, 0x2a9, 0x1a3, 0xaa, 0x7a6, 0x6af, 0x5a5, 0x4ac,
-      0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0,
-      0x460, 0x569, 0x663, 0x76a, 0x66, 0x16f, 0x265, 0x36c,
-      0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69, 0xb60,
-      0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0xff, 0x3f5, 0x2fc,
-      0xdfc, 0xcf5, 0xfff, 0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0,
-      0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x55, 0x15c,
-      0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53,
+    try {
+      const THREE = await import("https://esm.sh/three@0.169.0");
+      const { OrbitControls } = await import("https://esm.sh/three@0.169.0/examples/jsm/controls/OrbitControls.js");
+      const { GLTFExporter } = await import("https://esm.sh/three@0.169.0/examples/jsm/exporters/GLTFExporter.js");
+      const { OBJExporter } = await import("https://esm.sh/three@0.169.0/examples/jsm/exporters/OBJExporter.js");
+      const { STLExporter } = await import("https://esm.sh/three@0.169.0/examples/jsm/exporters/STLExporter.js");
+
+      // =====================================================================
+      // State
+      // =====================================================================
+      const state = {
+        photos: [],
+        selectedPhotoIdx: 0,
+        bgThreshold: 36,
+        thicknessPct: 85,
+        gridRes: 32,
+        targetTris: 1500,
+        colorInset: 2,
+        quantizePalette: false,
+        showWireframe: false,
+        showCameraRing: true,
+        sampleVariant: 0,
+        currentMesh: null
+      };
+
+      // =====================================================================
+      // Three.js Viewport
+      // =====================================================================
+      const canvas = document.getElementById("canvas3d");
+      const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100);
+      camera.position.set(2.35, 1.6, 2.55);
+
+      const controls = new OrbitControls(camera, canvas);
+      controls.enableDamping = true;
+      controls.target.set(0, 0.45, 0);
+
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.4));
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.15);
+      dirLight.position.set(3, 5, 4);
+      scene.add(dirLight);
+      const backLight = new THREE.DirectionalLight(0x93c5fd, 0.55);
+      backLight.position.set(-3, 2, -4);
+      scene.add(backLight);
+
+      scene.add(new THREE.GridHelper(3.2, 16, 0x334155, 0x1e2533));
+      const cameraRingGroup = new THREE.Group();
+      scene.add(cameraRingGroup);
+      const dogGroup = new THREE.Group();
+      scene.add(dogGroup);
+
+      function resizeViewport() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const w = Math.max(1, rect.width);
+        const h = Math.max(1, rect.height);
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+      }
+      window.addEventListener("resize", resizeViewport);
+      resizeViewport();
+
+      // =====================================================================
+      // Pure 2D-Projected Sample Dog Photo Generator (Zero extra WebGL contexts)
+      // =====================================================================
+      function generateSampleDogPhotos(variant = 0) {
+        const numPhotos = 12;
+        const size = 96;
+        const photos = [];
+        const isTall = variant === 1;
+
+        const coatMain = isTall ? "#c89d6c" : "#d97736";
+        const coatDark = isTall ? "#3b332b" : "#7c3712";
+        const coatChest = "#f3eadf";
+
+        // 3D ellipsoids representing dog anatomy so every 2D projection is exact
+        const parts = [
+          // Torso
+          { pos: [0, isTall ? 0.52 : 0.42, 0], rad: [0.36, isTall ? 0.21 : 0.23, isTall ? 0.21 : 0.23], col: coatMain },
+          // Chest
+          { pos: [0.27, isTall ? 0.54 : 0.44, 0], rad: [0.19, 0.2, 0.19], col: coatChest },
+          // Neck
+          { pos: [0.34, isTall ? 0.72 : 0.6, 0], rad: [0.14, 0.17, 0.14], col: coatMain },
+          // Head
+          { pos: [0.43, isTall ? 0.86 : 0.73, 0], rad: [0.16, 0.14, 0.14], col: coatMain },
+          // Snout
+          { pos: [0.58, isTall ? 0.82 : 0.69, 0], rad: [0.12, 0.07, 0.075], col: coatDark },
+          // Ears
+          { pos: [0.40, isTall ? 1.02 : 0.87, 0.08], rad: [0.05, 0.11, 0.04], col: coatDark },
+          { pos: [0.40, isTall ? 1.02 : 0.87, -0.08], rad: [0.05, 0.11, 0.04], col: coatDark },
+          // 4 Legs
+          { pos: [0.23, isTall ? 0.22 : 0.17, 0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
+          { pos: [0.23, isTall ? 0.22 : 0.17, -0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
+          { pos: [-0.25, isTall ? 0.22 : 0.17, 0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
+          { pos: [-0.25, isTall ? 0.22 : 0.17, -0.11], rad: [0.055, isTall ? 0.22 : 0.17, 0.055], col: coatChest },
+          // Tail
+          { pos: [-0.43, isTall ? 0.65 : 0.55, 0], rad: [0.13, 0.05, 0.05], col: coatDark }
+        ];
+
+        const radius = 2.15;
+        const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 20);
+        const pt = new THREE.Vector3();
+
+        for (let i = 0; i < numPhotos; i++) {
+          const angle = (i / numPhotos) * Math.PI * 2;
+          const elevation = 0.55 + Math.sin(i * 1.7) * 0.08;
+          const moved = i === 8;
+
+          cam.position.set(Math.cos(angle) * radius, elevation, Math.sin(angle) * radius);
+          cam.lookAt(0, 0.48, 0);
+          cam.updateMatrixWorld();
+          cam.updateProjectionMatrix();
+
+          const srcCanvas = document.createElement("canvas");
+          srcCanvas.width = size;
+          srcCanvas.height = size;
+          const ctx = srcCanvas.getContext("2d");
+
+          // Studio backdrop
+          ctx.fillStyle = "#182232";
+          ctx.fillRect(0, 0, size, size);
+
+          // Project parts back-to-front
+          const projected = parts.map((part) => {
+            pt.set(
+              part.pos[0] + (moved ? 0.36 : 0),
+              part.pos[1],
+              part.pos[2] + (moved ? -0.25 : 0)
+            );
+            const dist = pt.distanceTo(cam.position);
+            pt.project(cam);
+            const sx = (pt.x * 0.5 + 0.5) * size;
+            const sy = (-pt.y * 0.5 + 0.5) * size;
+            const scale = (size / (2 * dist * Math.tan((20 * Math.PI) / 180)));
+            const rx = Math.max(2, (Math.abs(Math.sin(angle)) * part.rad[0] + Math.abs(Math.cos(angle)) * part.rad[2]) * scale);
+            const ry = Math.max(2, part.rad[1] * scale);
+            return { sx, sy, rx, ry, dist, col: part.col };
+          }).sort((a, b) => b.dist - a.dist);
+
+          for (const p of projected) {
+            ctx.fillStyle = p.col;
+            ctx.beginPath();
+            ctx.ellipse(p.sx, p.sy, p.rx, p.ry, 0, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          photos.push({
+            id: i + 1,
+            name: `dog_${String(i + 1).padStart(2, "0")}.jpg`,
+            angle,
+            elevation,
+            radius,
+            dropped: moved,
+            dropReason: moved ? "Dog moved" : "",
+            manualEnabled: !moved,
+            srcCanvas,
+            width: size,
+            height: size,
+            maskData: null,
+            erodedMask: null,
+            colorData: null
+          });
+        }
+        return photos;
+      }
+
+      // =====================================================================
+      // Step 1: Silhouette Extraction + Cleanup
+      // =====================================================================
+      function extractAndTidySilhouettes() {
+        const thresh = state.bgThreshold;
+        const inset = state.colorInset;
+
+        for (const p of state.photos) {
+          const w = p.width;
+          const h = p.height;
+          const data = p.srcCanvas.getContext("2d").getImageData(0, 0, w, h).data;
+          p.colorData = data;
+
+          const corners = [0, (w - 1) * 4, (h - 1) * w * 4, (h * w - 1) * 4];
+          let bgR = 0, bgG = 0, bgB = 0;
+          for (const idx of corners) {
+            bgR += data[idx];
+            bgG += data[idx + 1];
+            bgB += data[idx + 2];
+          }
+          bgR /= 4; bgG /= 4; bgB /= 4;
+
+          const raw = new Uint8Array(w * h);
+          for (let i = 0; i < w * h; i++) {
+            const dist = Math.hypot(data[i * 4] - bgR, data[i * 4 + 1] - bgG, data[i * 4 + 2] - bgB);
+            raw[i] = dist > thresh ? 1 : 0;
+          }
+
+          // Keep largest connected component
+          const visited = new Uint8Array(w * h);
+          let bestComp = [];
+          const queue = new Int32Array(w * h);
+
+          for (let i = 0; i < w * h; i++) {
+            if (raw[i] && !visited[i]) {
+              let head = 0, tail = 0;
+              queue[tail++] = i;
+              visited[i] = 1;
+              const comp = [];
+              while (head < tail) {
+                const cur = queue[head++];
+                comp.push(cur);
+                const cx = cur % w, cy = (cur / w) | 0;
+                if (cx > 0 && raw[cur - 1] && !visited[cur - 1]) { visited[cur - 1] = 1; queue[tail++] = cur - 1; }
+                if
