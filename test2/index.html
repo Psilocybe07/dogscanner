@@ -698,4 +698,565 @@
                 comp.push(cur);
                 const cx = cur % w, cy = (cur / w) | 0;
                 if (cx > 0 && raw[cur - 1] && !visited[cur - 1]) { visited[cur - 1] = 1; queue[tail++] = cur - 1; }
-                if
+                if (cx < w - 1 && raw[cur + 1] && !visited[cur + 1]) { visited[cur + 1] = 1; queue[tail++] = cur + 1; }
+                if (cy > 0 && raw[cur - w] && !visited[cur - w]) { visited[cur - w] = 1; queue[tail++] = cur - w; }
+                if (cy < h - 1 && raw[cur + w] && !visited[cur + w]) { visited[cur + w] = 1; queue[tail++] = cur + w; }
+              }
+              if (comp.length > bestComp.length) bestComp = comp;
+            }
+          }
+
+          const clean = new Uint8Array(w * h);
+          for (const idx of bestComp) clean[idx] = 1;
+
+          // Fill interior holes
+          const outside = new Uint8Array(w * h);
+          let head = 0, tail = 0;
+          for (let x = 0; x < w; x++) {
+            if (!clean[x]) { outside[x] = 1; queue[tail++] = x; }
+            const bot = (h - 1) * w + x;
+            if (!clean[bot]) { outside[bot] = 1; queue[tail++] = bot; }
+          }
+          for (let y = 0; y < h; y++) {
+            const left = y * w, right = y * w + (w - 1);
+            if (!clean[left]) { outside[left] = 1; queue[tail++] = left; }
+            if (!clean[right]) { outside[right] = 1; queue[tail++] = right; }
+          }
+          while (head < tail) {
+            const cur = queue[head++];
+            const cx = cur % w, cy = (cur / w) | 0;
+            if (cx > 0 && !clean[cur - 1] && !outside[cur - 1]) { outside[cur - 1] = 1; queue[tail++] = cur - 1; }
+            if (cx < w - 1 && !clean[cur + 1] && !outside[cur + 1]) { outside[cur + 1] = 1; queue[tail++] = cur + 1; }
+            if (cy > 0 && !clean[cur - w] && !outside[cur - w]) { outside[cur - w] = 1; queue[tail++] = cur - w; }
+            if (cy < h - 1 && !clean[cur + w] && !outside[cur + w]) { outside[cur + w] = 1; queue[tail++] = cur + w; }
+          }
+          for (let i = 0; i < w * h; i++) clean[i] = outside[i] ? 0 : 1;
+          p.maskData = clean;
+
+          // Eroded mask for interior color sampling
+          let eroded = new Uint8Array(clean);
+          for (let step = 0; step < inset; step++) {
+            const next = new Uint8Array(w * h);
+            for (let y = 1; y < h - 1; y++) {
+              for (let x = 1; x < w - 1; x++) {
+                const idx = y * w + x;
+                if (eroded[idx] && eroded[idx - 1] && eroded[idx + 1] && eroded[idx - w] && eroded[idx + w]) {
+                  next[idx] = 1;
+                }
+              }
+            }
+            eroded = next;
+          }
+          p.erodedMask = eroded;
+        }
+      }
+
+      // =====================================================================
+      // Step 2: Camera Ring Visuals
+      // =====================================================================
+      function updateCameraRingVisuals() {
+        cameraRingGroup.clear();
+        cameraRingGroup.visible = state.showCameraRing;
+
+        const ringGeo = new THREE.RingGeometry(2.12, 2.16, 64);
+        ringGeo.rotateX(-Math.PI / 2);
+        cameraRingGroup.add(new THREE.Mesh(
+          ringGeo,
+          new THREE.MeshBasicMaterial({ color: 0x3b82f6, side: THREE.DoubleSide, transparent: true, opacity: 0.45 })
+        ));
+
+        state.photos.forEach((p, idx) => {
+          const active = p.manualEnabled;
+          const selected = idx === state.selectedPhotoIdx;
+          const color = selected ? 0x60a5fa : active ? 0x10b981 : 0xef4444;
+          const camMesh = new THREE.Mesh(
+            new THREE.ConeGeometry(0.08, 0.16, 4),
+            new THREE.MeshBasicMaterial({ color, wireframe: !selected })
+          );
+          camMesh.position.set(Math.cos(p.angle) * p.radius, p.elevation, Math.sin(p.angle) * p.radius);
+          camMesh.lookAt(0, 0.48, 0);
+          camMesh.rotateX(Math.PI / 2);
+          cameraRingGroup.add(camMesh);
+        });
+      }
+
+      // =====================================================================
+      // Step 3–6: Voxel Carving -> Surface -> Decimation -> Flat Color
+      // =====================================================================
+      function buildVisualHullMesh() {
+        const activePhotos = state.photos.filter((p) => p.manualEnabled);
+        document.getElementById("statPhotos").textContent = `${activePhotos.length} / ${state.photos.length}`;
+        if (activePhotos.length === 0) {
+          dogGroup.clear();
+          document.getElementById("statTris").textContent = "0";
+          return;
+        }
+
+        const camProjectors = activePhotos.map((p) => {
+          const cam = new THREE.PerspectiveCamera(40, 1, 0.1, 20);
+          cam.position.set(Math.cos(p.angle) * p.radius, p.elevation, Math.sin(p.angle) * p.radius);
+          cam.lookAt(0, 0.48, 0);
+          cam.updateMatrixWorld();
+          cam.updateProjectionMatrix();
+          return {
+            photo: p,
+            viewProj: new THREE.Matrix4().multiplyMatrices(cam.projectionMatrix, cam.matrixWorldInverse),
+            camPos: cam.position.clone()
+          };
+        });
+
+        const N = state.gridRes;
+        const minB = new THREE.Vector3(-0.75, 0.0, -0.75);
+        const maxB = new THREE.Vector3(0.75, 1.25, 0.75);
+        const stepX = (maxB.x - minB.x) / N;
+        const stepY = (maxB.y - minB.y) / N;
+        const stepZ = (maxB.z - minB.z) / N;
+
+        const minVotes = Math.max(1, Math.ceil((state.thicknessPct / 100) * camProjectors.length));
+        const grid = new Uint8Array(N * N * N);
+        const v = new THREE.Vector3();
+
+        for (let z = 1; z < N - 1; z++) {
+          const wz = minB.z + (z + 0.5) * stepZ;
+          for (let y = 1; y < N - 1; y++) {
+            const wy = minB.y + (y + 0.5) * stepY;
+            for (let x = 1; x < N - 1; x++) {
+              const wx = minB.x + (x + 0.5) * stepX;
+              let votes = 0;
+              for (let c = 0; c < camProjectors.length; c++) {
+                v.set(wx, wy, wz).applyMatrix4(camProjectors[c].viewProj);
+                const u = Math.floor((v.x * 0.5 + 0.5) * camProjectors[c].photo.width);
+                const py = Math.floor((-v.y * 0.5 + 0.5) * camProjectors[c].photo.height);
+                if (u >= 0 && u < camProjectors[c].photo.width && py >= 0 && py < camProjectors[c].photo.height) {
+                  if (camProjectors[c].photo.maskData[py * camProjectors[c].photo.width + u] === 1) votes++;
+                }
+              }
+              if (votes >= minVotes) grid[z * N * N + y * N + x] = 1;
+            }
+          }
+        }
+
+        const faceDirs = [
+          { d: [1, 0, 0], corners: [[1,0,0],[1,1,0],[1,1,1],[1,0,1]] },
+          { d: [-1, 0, 0], corners: [[0,0,1],[0,1,1],[0,1,0],[0,0,0]] },
+          { d: [0, 1, 0], corners: [[0,1,0],[0,1,1],[1,1,1],[1,1,0]] },
+          { d: [0, -1, 0], corners: [[0,0,1],[0,0,0],[1,0,0],[1,0,1]] },
+          { d: [0, 0, 1], corners: [[0,0,1],[1,0,1],[1,1,1],[0,1,1]] },
+          { d: [0, 0, -1], corners: [[1,0,0],[0,0,0],[0,1,0],[1,1,0]] }
+        ];
+
+        const vertexMap = new Map();
+        const uniqueVerts = [];
+        const neighbors = [];
+        const quads = [];
+
+        function getVertIdx(ix, iy, iz) {
+          const key = `${ix},${iy},${iz}`;
+          if (vertexMap.has(key)) return vertexMap.get(key);
+          const idx = uniqueVerts.length;
+          uniqueVerts.push(new THREE.Vector3(minB.x + ix * stepX, minB.y + iy * stepY, minB.z + iz * stepZ));
+          neighbors.push(new Set());
+          vertexMap.set(key, idx);
+          return idx;
+        }
+
+        for (let z = 1; z < N - 1; z++) {
+          for (let y = 1; y < N - 1; y++) {
+            for (let x = 1; x < N - 1; x++) {
+              if (!grid[z * N * N + y * N + x]) continue;
+              for (const f of faceDirs) {
+                const nx = x + f.d[0], ny = y + f.d[1], nz = z + f.d[2];
+                if (!grid[nz * N * N + ny * N + nx]) {
+                  const q = f.corners.map((c) => getVertIdx(x + c[0], y + c[1], z + c[2]));
+                  quads.push(q);
+                  for (let i = 0; i < 4; i++) {
+                    neighbors[q[i]].add(q[(i + 1) % 4]);
+                    neighbors[q[i]].add(q[(i + 3) % 4]);
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        for (let pass = 0; pass < 3; pass++) {
+          const nextVerts = uniqueVerts.map((vert, idx) => {
+            const nb = neighbors[idx];
+            if (nb.size === 0) return vert.clone();
+            const avg = new THREE.Vector3();
+            for (const nIdx of nb) avg.add(uniqueVerts[nIdx]);
+            avg.divideScalar(nb.size);
+            return vert.clone().lerp(avg, 0.52);
+          });
+          for (let i = 0; i < uniqueVerts.length; i++) uniqueVerts[i] = nextVerts[i];
+        }
+
+        let allTris = [];
+        for (const [a, b, c, d] of quads) {
+          allTris.push([uniqueVerts[a], uniqueVerts[b], uniqueVerts[c]]);
+          allTris.push([uniqueVerts[a], uniqueVerts[c], uniqueVerts[d]]);
+        }
+
+        const targetTris = state.targetTris;
+        if (allTris.length > targetTris && allTris.length > 0) {
+          const ratio = Math.sqrt(targetTris / allTris.length);
+          const clusterSize = Math.max(stepX * 0.65, (stepX / Math.max(0.18, ratio)) * 0.85);
+          const clusterMap = new Map();
+          const clusterVerts = [];
+
+          function quantizeVert(pt) {
+            const key = `${Math.round(pt.x / clusterSize)},${Math.round(pt.y / clusterSize)},${Math.round(pt.z / clusterSize)}`;
+            if (!clusterMap.has(key)) {
+              clusterMap.set(key, { idx: clusterVerts.length, sum: pt.clone(), count: 1 });
+              clusterVerts.push(pt.clone());
+            } else {
+              const entry = clusterMap.get(key);
+              entry.sum.add(pt);
+              entry.count++;
+              clusterVerts[entry.idx].copy(entry.sum).divideScalar(entry.count);
+            }
+            return clusterMap.get(key).idx;
+          }
+
+          const decimated = [];
+          for (const [p0, p1, p2] of allTris) {
+            const i0 = quantizeVert(p0), i1 = quantizeVert(p1), i2 = quantizeVert(p2);
+            if (i0 !== i1 && i1 !== i2 && i0 !== i2) {
+              decimated.push([clusterVerts[i0], clusterVerts[i1], clusterVerts[i2]]);
+            }
+          }
+          if (decimated.length >= 24) allTris = decimated;
+        }
+
+        const positions = new Float32Array(allTris.length * 9);
+        const colors = new Float32Array(allTris.length * 9);
+        const triCenter = new THREE.Vector3();
+        const triNormal = new THREE.Vector3();
+        const edge1 = new THREE.Vector3();
+        const edge2 = new THREE.Vector3();
+        const toCam = new THREE.Vector3();
+        const proj = new THREE.Vector3();
+
+        for (let t = 0; t < allTris.length; t++) {
+          const [p0, p1, p2] = allTris[t];
+          triCenter.copy(p0).add(p1).add(p2).divideScalar(3);
+          edge1.subVectors(p1, p0);
+          edge2.subVectors(p2, p0);
+          triNormal.crossVectors(edge1, edge2).normalize();
+
+          let bestDot = -Infinity;
+          let bestProj = camProjectors[0];
+          for (const cp of camProjectors) {
+            toCam.subVectors(cp.camPos, triCenter).normalize();
+            const d = triNormal.dot(toCam);
+            if (d > bestDot) { bestDot = d; bestProj = cp; }
+          }
+
+          proj.copy(triCenter).applyMatrix4(bestProj.viewProj);
+          const w = bestProj.photo.width;
+          const h = bestProj.photo.height;
+          const u = Math.min(w - 1, Math.max(0, Math.floor((proj.x * 0.5 + 0.5) * w)));
+          const py = Math.min(h - 1, Math.max(0, Math.floor((-proj.y * 0.5 + 0.5) * h)));
+
+          let r = 210, g = 140, b = 85;
+          const idx = py * w + u;
+          if (bestProj.photo.erodedMask[idx] === 1 || bestProj.photo.maskData[idx] === 1) {
+            r = bestProj.photo.colorData[idx * 4];
+            g = bestProj.photo.colorData[idx * 4 + 1];
+            b = bestProj.photo.colorData[idx * 4 + 2];
+          }
+
+          if (state.quantizePalette) {
+            r = Math.round(r / 42) * 42;
+            g = Math.round(g / 42) * 42;
+            b = Math.round(b / 42) * 42;
+          }
+
+          const cr = r / 255, cg = g / 255, cb = b / 255;
+          const base = t * 9;
+          positions[base] = p0.x; positions[base + 1] = p0.y; positions[base + 2] = p0.z;
+          positions[base + 3] = p1.x; positions[base + 4] = p1.y; positions[base + 5] = p1.z;
+          positions[base + 6] = p2.x; positions[base + 7] = p2.y; positions[base + 8] = p2.z;
+
+          for (let k = 0; k < 3; k++) {
+            colors[base + k * 3] = cr;
+            colors[base + k * 3 + 1] = cg;
+            colors[base + k * 3 + 2] = cb;
+          }
+        }
+
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+        geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+        geo.computeVertexNormals();
+
+        const mesh = new THREE.Mesh(
+          geo,
+          new THREE.MeshStandardMaterial({
+            vertexColors: true,
+            flatShading: true,
+            roughness: 0.72,
+            metalness: 0.04,
+            wireframe: state.showWireframe
+          })
+        );
+
+        dogGroup.clear();
+        dogGroup.add(mesh);
+        state.currentMesh = mesh;
+
+        document.getElementById("statTris").textContent = allTris.length.toLocaleString();
+        document.getElementById("statVoxels").textContent = `${N}³`;
+        setStatus(`Ready — Drag to orbit, scroll to zoom, or upload photos.`);
+      }
+
+      // =====================================================================
+      // Filmstrip & Mask Inspector
+      // =====================================================================
+      function renderFilmstrip() {
+        const strip = document.getElementById("filmstrip");
+        strip.innerHTML = "";
+        state.photos.forEach((p, idx) => {
+          const card = document.createElement("div");
+          card.className = "thumb-card" + (idx === state.selectedPhotoIdx ? " selected" : "") + (!p.manualEnabled ? " dropped" : "");
+          const thumb = document.createElement("canvas");
+          thumb.width = 96; thumb.height = 60;
+          thumb.getContext("2d").drawImage(p.srcCanvas, 0, 0, 96, 60);
+
+          const info = document.createElement("div");
+          info.className = "thumb-info";
+          const deg = Math.round((p.angle * 180) / Math.PI);
+          info.innerHTML = `<span>#${p.id}</span><span class="badge-status ${p.manualEnabled ? "badge-ok" : "badge-drop"}">${p.manualEnabled ? `${deg}°` : (p.dropReason || "Off")}</span>`;
+
+          card.appendChild(thumb);
+          card.appendChild(info);
+          card.addEventListener("click", () => {
+            state.selectedPhotoIdx = idx;
+            renderFilmstrip();
+            renderSelectedPreview();
+            updateCameraRingVisuals();
+          });
+          strip.appendChild(card);
+        });
+      }
+
+      function renderSelectedPreview() {
+        const p = state.photos[state.selectedPhotoIdx];
+        if (!p) return;
+
+        document.getElementById("selectedCamLabel").textContent = `Cam #${p.id} (${Math.round((p.angle * 180) / Math.PI)}°)`;
+        const toggleBtn = document.getElementById("btnTogglePhoto");
+        toggleBtn.textContent = p.manualEnabled ? "Active" : "Excluded";
+        toggleBtn.className = p.manualEnabled ? "active" : "";
+
+        const srcC = document.getElementById("previewSource");
+        srcC.getContext("2d").drawImage(p.srcCanvas, 0, 0, 128, 128);
+
+        const maskC = document.getElementById("previewMask");
+        const mctx = maskC.getContext("2d");
+        const outImg = mctx.createImageData(p.width, p.height);
+        for (let i = 0; i < p.width * p.height; i++) {
+          const val = p.maskData[i] ? 255 : 14;
+          outImg.data[i * 4] = val;
+          outImg.data[i * 4 + 1] = val;
+          outImg.data[i * 4 + 2] = p.maskData[i] ? 255 : 20;
+          outImg.data[i * 4 + 3] = 255;
+        }
+        const tempC = document.createElement("canvas");
+        tempC.width = p.width; tempC.height = p.height;
+        tempC.getContext("2d").putImageData(outImg, 0, 0);
+        mctx.clearRect(0, 0, 128, 128);
+        mctx.drawImage(tempC, 0, 0, 128, 128);
+      }
+
+      function rebuildAll() {
+        extractAndTidySilhouettes();
+        renderFilmstrip();
+        renderSelectedPreview();
+        updateCameraRingVisuals();
+        buildVisualHullMesh();
+      }
+
+      // =====================================================================
+      // Wire All UI Event Listeners First
+      // =====================================================================
+      document.getElementById("btnUpload").addEventListener("click", () => {
+        document.getElementById("fileInput").click();
+      });
+
+      document.getElementById("fileInput").addEventListener("change", async (e) => {
+        const files = Array.from(e.target.files || []);
+        if (!files.length) return;
+        setStatus(`Processing ${files.length} uploaded photo(s)...`);
+
+        const loaded = [];
+        for (let i = 0; i < files.length; i++) {
+          const url = URL.createObjectURL(files[i]);
+          const img = await new Promise((res) => {
+            const image = new Image();
+            image.onload = () => res(image);
+            image.src = url;
+          });
+          const size = 96;
+          const c = document.createElement("canvas");
+          c.width = size; c.height = size;
+          c.getContext("2d").drawImage(img, 0, 0, size, size);
+          URL.revokeObjectURL(url);
+
+          loaded.push({
+            id: i + 1,
+            name: files[i].name,
+            angle: (i / files.length) * Math.PI * 2,
+            elevation: 0.55,
+            radius: 2.15,
+            dropped: false,
+            dropReason: "",
+            manualEnabled: true,
+            srcCanvas: c,
+            width: size,
+            height: size,
+            maskData: null,
+            erodedMask: null,
+            colorData: null
+          });
+        }
+        state.photos = loaded;
+        state.selectedPhotoIdx = 0;
+        rebuildAll();
+      });
+
+      document.getElementById("btnSampleBreed").addEventListener("click", () => {
+        state.sampleVariant = (state.sampleVariant + 1) % 2;
+        state.photos = generateSampleDogPhotos(state.sampleVariant);
+        state.selectedPhotoIdx = 0;
+        rebuildAll();
+      });
+
+      document.getElementById("sliderBgThresh").addEventListener("input", (e) => {
+        state.bgThreshold = Number(e.target.value);
+        document.getElementById("valBgThresh").textContent = state.bgThreshold;
+        rebuildAll();
+      });
+
+      document.getElementById("btnTogglePhoto").addEventListener("click", () => {
+        const p = state.photos[state.selectedPhotoIdx];
+        if (!p) return;
+        p.manualEnabled = !p.manualEnabled;
+        renderFilmstrip();
+        renderSelectedPreview();
+        updateCameraRingVisuals();
+        buildVisualHullMesh();
+      });
+
+      document.getElementById("sliderThickness").addEventListener("input", (e) => {
+        state.thicknessPct = Number(e.target.value);
+        document.getElementById("valThickness").textContent = `${state.thicknessPct}%`;
+        buildVisualHullMesh();
+      });
+
+      document.getElementById("sliderGridRes").addEventListener("input", (e) => {
+        state.gridRes = Number(e.target.value);
+        document.getElementById("valGridRes").textContent = `${state.gridRes}³`;
+        buildVisualHullMesh();
+      });
+
+      document.querySelectorAll("#budgetPresets button").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          document.querySelectorAll("#budgetPresets button").forEach((b) => b.classList.remove("active"));
+          btn.classList.add("active");
+          const tris = Number(btn.dataset.tris);
+          state.targetTris = tris;
+          document.getElementById("sliderTargetTris").value = tris;
+          document.getElementById("valTargetTris").textContent = tris;
+          document.getElementById("valBudgetMode").textContent = tris <= 700 ? "Low" : tris <= 2000 ? "Medium" : "High";
+          buildVisualHullMesh();
+        });
+      });
+
+      document.getElementById("sliderTargetTris").addEventListener("input", (e) => {
+        state.targetTris = Number(e.target.value);
+        document.getElementById("valTargetTris").textContent = state.targetTris;
+        document.getElementById("valBudgetMode").textContent = state.targetTris <= 700 ? "Low" : state.targetTris <= 2000 ? "Medium" : "High";
+        buildVisualHullMesh();
+      });
+
+      document.getElementById("sliderColorInset").addEventListener("input", (e) => {
+        state.colorInset = Number(e.target.value);
+        document.getElementById("valColorInset").textContent = `${state.colorInset} px`;
+        extractAndTidySilhouettes();
+        buildVisualHullMesh();
+      });
+
+      document.getElementById("chkQuantize").addEventListener("change", (e) => {
+        state.quantizePalette = e.target.checked;
+        buildVisualHullMesh();
+      });
+
+      document.getElementById("btnWireframe").addEventListener("click", (e) => {
+        state.showWireframe = !state.showWireframe;
+        e.target.classList.toggle("active", state.showWireframe);
+        if (state.currentMesh) state.currentMesh.material.wireframe = state.showWireframe;
+      });
+
+      document.getElementById("btnCameraRing").addEventListener("click", (e) => {
+        state.showCameraRing = !state.showCameraRing;
+        e.target.classList.toggle("active", state.showCameraRing);
+        cameraRingGroup.visible = state.showCameraRing;
+      });
+
+      document.getElementById("btnResetView").addEventListener("click", () => {
+        camera.position.set(2.35, 1.6, 2.55);
+        controls.target.set(0, 0.45, 0);
+        controls.update();
+      });
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      document.getElementById("exportGLB").addEventListener("click", () => {
+        if (!state.currentMesh) return;
+        new GLTFExporter().parse(
+          state.currentMesh,
+          (res) => downloadBlob(new Blob([res], { type: "model/gltf-binary" }), "lowpoly_dog.glb"),
+          (err) => setStatus(`GLB Export error: ${err}`, true),
+          { binary: true }
+        );
+      });
+
+      document.getElementById("exportOBJ").addEventListener("click", () => {
+        if (!state.currentMesh) return;
+        const text = new OBJExporter().parse(state.currentMesh);
+        downloadBlob(new Blob([text], { type: "text/plain" }), "lowpoly_dog.obj");
+      });
+
+      document.getElementById("exportSTL").addEventListener("click", () => {
+        if (!state.currentMesh) return;
+        const bin = new STLExporter().parse(state.currentMesh, { binary: true });
+        downloadBlob(new Blob([bin], { type: "application/octet-stream" }), "lowpoly_dog.stl");
+      });
+
+      // =====================================================================
+      // Boot
+      // =====================================================================
+      state.photos = generateSampleDogPhotos(0);
+      rebuildAll();
+
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+    } catch (err) {
+      setStatus(`Startup error: ${err.message}`, true);
+      console.error(err);
+    }
+  </script>
+</body>
+</html>
